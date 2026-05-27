@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arquitectura de Datos — Sistema WBR POC</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --navy:#1a2744;
+  --navy2:#243460;
+  --gold:#f5a623;
+  --gold2:#fbbf24;
+  --bg:#f0f2f7;
+  --white:#ffffff;
+  --border:#d8dde8;
+  --muted:#8892aa;
+  --text:#1a2744;
+  --green:#0e7a5c;
+  --green-l:#d1fae5;
+  --red:#c0392b;
+  --red-l:#fee2e2;
+  --blue:#2563eb;
+  --blue-l:#dbeafe;
+  --purple:#6c3483;
+  --purple-l:#ede9fe;
+  --orange:#ea580c;
+  --orange-l:#ffedd5;
+}
+body{
+  font-family:'DM Sans',sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  min-height:100vh;
+  padding:40px 24px;
+}
+.wrap{max-width:1200px;margin:0 auto;}
+
+/* HEADER */
+.header{text-align:center;margin-bottom:48px;}
+.header .eyebrow{display:inline-flex;align-items:center;gap:8px;font-family:'DM Mono',monospace;font-size:11px;font-weight:500;letter-spacing:2px;text-transform:uppercase;color:var(--gold);background:rgba(245,166,35,.1);border:1px solid rgba(245,166,35,.25);padding:5px 14px;border-radius:20px;margin-bottom:16px;}
+.header h1{font-family:'Syne',sans-serif;font-size:36px;font-weight:800;color:var(--navy);letter-spacing:-1px;margin-bottom:8px;}
+.header p{font-size:14px;color:var(--muted);max-width:500px;margin:0 auto;}
+
+/* GRID PRINCIPAL */
+.arch-grid{
+  display:grid;
+  grid-template-columns:1fr 60px 200px 60px 1fr;
+  grid-template-rows:auto auto auto auto auto;
+  gap:0;
+  align-items:center;
+}
+
+/* PORTALES */
+.portal-block{
+  background:var(--white);
+  border-radius:16px;
+  overflow:hidden;
+  box-shadow:0 4px 24px rgba(26,39,68,.08);
+  border:1px solid var(--border);
+}
+.portal-header{
+  padding:16px 20px;
+  display:flex;align-items:center;gap:10px;
+}
+.portal-header .num{
+  font-family:'Syne',sans-serif;font-size:22px;font-weight:800;
+  width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#fff;
+}
+.portal-header .info h3{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;margin-bottom:1px;}
+.portal-header .info p{font-size:11px;opacity:.7;}
+.p1-header{background:var(--navy);}
+.p1-header .num{background:var(--gold);}
+.p1-header .info h3,.p1-header .info p{color:#fff;}
+.p2-header{background:var(--navy2);}
+.p2-header .num{background:var(--gold);}
+.p2-header .info h3,.p2-header .info p{color:#fff;}
+
+.portal-objective{
+  padding:12px 20px 14px;
+  font-size:12px;
+  color:var(--muted);
+  line-height:1.6;
+  border-bottom:1px solid var(--border);
+  background:#fafbfd;
+  font-style:italic;
+}
+
+.portal-actors{
+  padding:10px 20px;
+  display:flex;gap:6px;flex-wrap:wrap;
+  border-bottom:1px solid var(--border);
+  background:#fafbfd;
+}
+.actor-chip{
+  font-size:10px;font-weight:600;padding:3px 8px;border-radius:20px;
+}
+.actor-v{background:rgba(37,99,235,.1);color:#1d4ed8;}
+.actor-m{background:rgba(108,52,131,.1);color:var(--purple);}
+.actor-c{background:rgba(14,122,92,.1);color:var(--green);}
+
+/* DB ITEMS */
+.db-list{padding:12px 20px 16px;}
+.db-item{
+  display:flex;align-items:center;gap:8px;
+  padding:6px 10px;margin-bottom:5px;
+  background:var(--bg);border-radius:8px;
+  border:1px solid var(--border);
+  cursor:default;
+  transition:all .15s;
+}
+.db-item:hover{border-color:var(--gold);background:#fffbf0;}
+.db-item:last-child{margin-bottom:0;}
+.db-icon{font-size:14px;flex-shrink:0;}
+.db-info{flex:1;}
+.db-name{font-family:'DM Mono',monospace;font-size:11px;font-weight:500;color:var(--navy);}
+.db-desc{font-size:10px;color:var(--muted);margin-top:1px;}
+.db-ops{display:flex;gap:3px;}
+.op{font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;letter-spacing:.5px;}
+.op-w{background:rgba(245,166,35,.15);color:#92400e;}
+.op-r{background:rgba(37,99,235,.1);color:#1d4ed8;}
+
+/* CENTRO — GOOGLE SHEETS */
+.center-col{
+  grid-column:3;
+  display:flex;flex-direction:column;align-items:center;gap:0;
+}
+.sheets-hub{
+  background:var(--white);
+  border:2px solid var(--gold);
+  border-radius:16px;
+  padding:20px 16px;
+  text-align:center;
+  box-shadow:0 8px 32px rgba(245,166,35,.15);
+  width:100%;
+}
+.sheets-hub .icon{font-size:36px;margin-bottom:8px;display:block;}
+.sheets-hub h3{font-family:'Syne',sans-serif;font-size:13px;font-weight:700;color:var(--navy);margin-bottom:4px;}
+.sheets-hub p{font-size:10px;color:var(--muted);line-height:1.5;}
+.sheets-hub .tag{
+  display:inline-block;margin-top:8px;
+  font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;
+  background:rgba(245,166,35,.15);color:#92400e;
+  padding:2px 8px;border-radius:20px;
+}
+
+/* ERP BLOCK */
+.erp-block{
+  grid-column:3;
+  margin-top:16px;
+  background:var(--white);
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:14px 16px;
+  text-align:center;
+  width:100%;
+}
+.erp-block .icon{font-size:24px;margin-bottom:6px;display:block;}
+.erp-block h3{font-family:'Syne',sans-serif;font-size:12px;font-weight:700;color:var(--navy);margin-bottom:3px;}
+.erp-block p{font-size:10px;color:var(--muted);}
+.erp-block .tag{
+  display:inline-block;margin-top:6px;
+  font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;
+  background:var(--blue-l);color:var(--blue);
+  padding:2px 8px;border-radius:20px;
+}
+
+/* FLECHAS */
+.arrow-col{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+  padding:0 4px;
+}
+.arrow-line{
+  width:100%;height:2px;
+  position:relative;
+  display:flex;align-items:center;justify-content:center;
+}
+.arrow-line.write{background:linear-gradient(90deg,var(--gold),var(--gold2));}
+.arrow-line.read{background:linear-gradient(90deg,var(--blue),#60a5fa);}
+.arrow-line.both{background:linear-gradient(90deg,var(--gold),var(--navy));}
+.arrow-label{font-size:9px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);white-space:nowrap;}
+
+/* Arrowheads */
+.arr-right::after{content:'';position:absolute;right:-1px;top:50%;transform:translateY(-50%);border:5px solid transparent;border-left-color:var(--gold2);border-right:none;}
+.arr-left::before{content:'';position:absolute;left:-1px;top:50%;transform:translateY(-50%);border:5px solid transparent;border-right-color:var(--blue);border-left:none;}
+.arr-both::after{content:'';position:absolute;right:-1px;top:50%;transform:translateY(-50%);border:5px solid transparent;border-left-color:var(--navy);border-right:none;}
+.arr-both::before{content:'';position:absolute;left:-1px;top:50%;transform:translateY(-50%);border:5px solid transparent;border-right-color:var(--gold);border-left:none;}
+
+/* LEYENDA */
+.legend{
+  display:flex;align-items:center;justify-content:center;gap:24px;
+  margin-top:32px;padding:14px 24px;
+  background:var(--white);border-radius:12px;
+  border:1px solid var(--border);
+  flex-wrap:wrap;
+}
+.legend-item{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);}
+.legend-line{width:32px;height:2px;border-radius:1px;position:relative;}
+.legend-line.w{background:linear-gradient(90deg,var(--gold),var(--gold2));}
+.legend-line.r{background:linear-gradient(90deg,var(--blue),#60a5fa);}
+.legend-line.e{background:linear-gradient(90deg,#10b981,#34d399);}
+
+/* FLUJOS CLAVE */
+.flows{margin-top:32px;}
+.flows-title{font-family:'Syne',sans-serif;font-size:13px;font-weight:700;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:14px;text-align:center;}
+.flows-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+.flow-card{
+  background:var(--white);border-radius:12px;padding:16px;
+  border:1px solid var(--border);
+  border-top:3px solid transparent;
+}
+.flow-card.f1{border-top-color:var(--gold);}
+.flow-card.f2{border-top-color:var(--purple);}
+.flow-card.f3{border-top-color:var(--green);}
+.flow-card.f4{border-top-color:var(--blue);}
+.flow-card.f5{border-top-color:var(--red);}
+.flow-title{font-family:'Syne',sans-serif;font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px;}
+.flow-steps{list-style:none;}
+.flow-steps li{
+  font-size:11px;color:var(--text);
+  padding:4px 0;border-bottom:1px solid var(--bg);
+  display:flex;gap:7px;align-items:flex-start;
+  line-height:1.5;
+}
+.flow-steps li:last-child{border-bottom:none;}
+.step-n{
+  font-family:'DM Mono',monospace;font-size:9px;font-weight:500;
+  background:var(--navy);color:#fff;
+  min-width:16px;height:16px;border-radius:4px;
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;margin-top:1px;
+}
+.flow-dbs{margin-top:8px;display:flex;gap:4px;flex-wrap:wrap;}
+.flow-db{font-family:'DM Mono',monospace;font-size:9px;background:var(--bg);color:var(--muted);padding:2px 6px;border-radius:4px;border:1px solid var(--border);}
+
+/* SECCIÓN LABEL */
+.section-lbl{
+  font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;
+  color:var(--gold);margin-bottom:14px;
+  display:flex;align-items:center;gap:8px;
+}
+.section-lbl::after{content:'';flex:1;height:1px;background:rgba(245,166,35,.25);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<!-- HEADER -->
+<div class="header">
+  <div class="eyebrow">📐 Arquitectura · Sistema WBR</div>
+  <h1>Cómo fluyen los datos</h1>
+  <p>Los dos portales leen y escriben en una sola fuente de verdad. Esta es la arquitectura completa.</p>
+</div>
+
+<!-- ARQUITECTURA PRINCIPAL -->
+<div class="section-lbl">Diagrama de arquitectura</div>
+<div style="display:grid;grid-template-columns:1fr 48px 196px 48px 1fr;align-items:start;gap:0;margin-bottom:32px;">
+
+  <!-- PORTAL 1 -->
+  <div class="portal-block">
+    <div class="portal-header p1-header">
+      <div class="num">1</div>
+      <div class="info">
+        <h3>Portal 1 — Gestión Comercial</h3>
+        <p>Donde el trabajo sucede</p>
+      </div>
+    </div>
+    <div class="portal-objective">
+      Herramienta del día a día. Captura prospectos, registra actividades, genera leads de marketing y define el plan GROW del mes. Es la principal fuente de datos del sistema.
+    </div>
+    <div class="portal-actors">
+      <span class="actor-chip actor-v">👤 Vendedora</span>
+      <span class="actor-chip actor-m">📣 Coord. Marketing</span>
+      <span class="actor-chip actor-c">🎯 Coordinador</span>
+    </div>
+    <div class="db-list">
+      <div class="db-item">
+        <span class="db-icon">🏢</span>
+        <div class="db-info">
+          <div class="db-name">PROSPECTOS</div>
+          <div class="db-desc">Pipeline por etapa, origen, vendedora</div>
+        </div>
+        <div class="db-ops"><span class="op op-w">ESCRIBE</span></div>
+      </div>
+      <div class="db-item">
+        <span class="db-icon">📋</span>
+        <div class="db-info">
+          <div class="db-name">ACTIVIDADES</div>
+          <div class="db-desc">Historial de acciones por prospecto</div>
+        </div>
+        <div class="db-ops"><span class="op op-w">ESCRIBE</span></div>
+      </div>
+      <div class="db-item">
+        <span class="db-icon">📣</span>
+        <div class="db-info">
+          <div class="db-name">LEADS_MKT</div>
+          <div class="db-desc">Leads de campaña y semáforo de atención</div>
+        </div>
+        <div class="db-ops"><span class="op op-w">ESCRIBE</span></div>
+      </div>
+      <div class="db-item">
+        <span class="db-icon">📊</span>
+        <div class="db-info">
+          <div class="db-name">REPORTES_MKT</div>
+          <div class="db-desc">Reporte semanal de marketing</div>
+        </div>
+        <div class="db-ops"><span class="op op-w">ESCRIBE</span></div>
+      </div>
+      <div class="db-item">
+        <span class="db-icon">🚀</span>
+        <div class="db-info">
+          <div class="db-name">PLAN_GROW</div>
+          <div class="db-desc">Plan mensual 5+5+5 por vendedora</div>
+        </div>
+        <div class="db-ops"><span class="op op-w">ESCRIBE</span><span class="op op-r" style="margin-left:2px">LEE</span></div>
+      </div>
+      <div class="db-item">
+        <span class="db-icon">✅</span>
+        <div class="db-info">
+          <div class="db-name">ACCIONES_GROW</div>
+          <div class="db-desc">Actividades generadas al aprobar GROW</div>
+        </div>
+        <div class="db-ops"><span class="op op-r">LEE</span></div>
+      </div>
+      <div class="db-item">
+        <span class="db-icon">📌</span>
+        <div class="db-info">
+          <div class="db-name">COMPROMISOS</div>
+          <div class="db-desc">Acuerdos generados en sesión WBR</div>
+        </div>
+        <div class="db-ops"><span class="op op-r">LEE</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FLECHAS IZQUIERDA -->
+  <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:6px;padding-top:120px;">
+    <div style="width:100%;display:flex;flex-direction:column;align-items:center;gap:6px;">
+      <div style="font-size:9px;font-weight:700;color:var(--gold);letter-spacing:.5px;text-transform:uppercase;white-space:nowrap;">escribe</div>
+      <div style="width:2px;height:40px;background:linear-gradient(180deg,var(--gold),var(--gold2));position:relative;">
+        <div style="position:absolute;bottom:-5px;left:50%;transform:translateX(-50%);border:5px solid transparent;border-top-color:var(--gold2);border-bottom:none;"></div>
+      </div>
+      <div style="width:2px;height:40px;background:linear-gradient(0deg,var(--blue),#60a5fa);position:relative;">
+        <div style="position:absolute;top:-5px;left:50%;transform:translateX(-50%);border:5px solid transparent;border-bottom-color:var(--blue);border-top:none;"></div>
+      </div>
+      <div style="font-size:9px;font-weight:700;color:var(--blue);letter-spacing:.5px;text-transform:uppercase;white-space:nowrap;">lee</div>
+    </div>
+  </div>
+
+  <!-- CENTRO -->
+  <div style="display:flex;flex-direction:column;gap:12px;padding:0 4px;">
+    <div class="sheets-hub">
+      <span class="icon">📊</span>
+      <h3>Google Sheets</h3>
+      <p>Fuente única de verdad.<br>Todos los datos del sistema.</p>
+      <span class="tag">FUENTE ÚNICA</span>
+    </div>
+    <div class="erp-block">
+      <span class="icon">🏭</span>
+      <h3>ERP / Sistema interno</h3>
+      <p>Venta real, rentabilidad,<br>clientes activos del período.</p>
+      <span class="tag">SOLO LECTURA</span>
+    </div>
+  </div>
+
+  <!-- FLECHAS DERECHA -->
+  <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:6px;padding-top:120px;">
+    <div style="width:100%;display:flex;flex-direction:column;align-items:center;gap:6px;">
+      <div style="font-size:9px;font-weight:700;color:var(--gold);letter-spacing:.5px;text-transform:uppercase;white-space:nowrap;">escribe</div>
+      <div style="width:2px;height:40px;background:linear-gradient(180deg,var(--gold),var(--gold2));position:relative;">
+        <div style="position:absolute;bottom:-5px;left:50%;transform:translateX(-50%);border:5px solid transparent;border-top-color:var(--gold2);border-bottom:none;"></div>
+      </div>
+      <div style="width:2px;height:40px;background:linear-gradient(0deg,var(--blue),#60a5fa);position:relative;">
+        <div style="position:absolute;top:-5px;left:50%;transform:translateX(-50%);border:5px solid transparent;border-bottom-color:var(--blue);border-top:none;"></div>
+      </div>
+      <div style="font-size:9px;font-weight:700;color:var(--blue);letter-spacing:.5px;text-transform:uppercase;white-space:nowrap;">lee</div>
+    </div>
+  </div>
+
+  <!-- PORTAL 2 -->
+  <div class="portal-block">
+    <div class="portal-header p2-header">
+      <div class="num">2</div>
+      <div class="info">
+        <h3>Portal 2 — WBR y Accionables</h3>
+        <p>Donde el coordinador dirige</p>
+      </div>
+    </div>
+    <div class="portal-objective">
+      Herramienta de dirección. Toma los datos del Portal 1 y del ERP para estructurar sesiones WBR, generar compromisos y medir si el equipo está ejecutando lo que prometió.
+    </div>
+    <div class="portal-actors">
+      <span class="actor-chip actor-c">🎯 Coordinador Comercial</span>
+    </div>
+    <div class="db-list">
+      <div class="db-item">
+        <span class="db-icon">📅</span>
+        <div class="db-info">
+          <div class="db-name">SESIONES_WBR</div>
+          <div class="db-desc">Registro de cada sesión semanal</div>
+        </div>
+        <div class="db-ops"><span class="op op-w">ESCRIBE</span></div>
+      </div>
+      <div class="db-item">
+        <span class="db-icon">📌</span>
+        <div class="db-info">
+          <div class="db-name">COMPROMISOS</div>
+          <div class="db-desc">Acuerdos generados en cada sesión</div>
+        </div>
+        <div class="db-ops"><span class="op op-w">ESCRIBE</span></div>
+      </div>
+      <div class="db-item">
+        <span class="db-icon">✅</span>
+        <div class="db-info">
+          <div class="db-name">ACCIONES_GROW</div>
+          <div class="db-desc">Actividades generadas al aprobar el plan</div>
+        </div>
+        <div class="db-ops"><span class="op op-w">ESCRIBE</span></div>
+      </div>
+      <div class="db-item">
+        <span class="db-icon">🚀</span>
+        <div class="db-info">
+          <div class="db-name">PLAN_GROW</div>
+          <div class="db-desc">Lee el plan capturado por la vendedora</div>
+        </div>
+        <div class="db-ops"><span class="op op-r">LEE</span></div>
+      </div>
+      <div class="db-item">
+        <span class="db-icon">🏢</span>
+        <div class="db-info">
+          <div class="db-name">PROSPECTOS</div>
+          <div class="db-desc">Pipeline actual para análisis en sesión</div>
+        </div>
+        <div class="db-ops"><span class="op op-r">LEE</span></div>
+      </div>
+      <div class="db-item">
+        <span class="db-icon">📊</span>
+        <div class="db-info">
+          <div class="db-name">REPORTES_MKT</div>
+          <div class="db-desc">Valida reportes del coordinador de marketing</div>
+        </div>
+        <div class="db-ops"><span class="op op-w">ESCRIBE</span><span class="op op-r" style="margin-left:2px">LEE</span></div>
+      </div>
+      <div class="db-item">
+        <span class="db-icon">🏭</span>
+        <div class="db-info">
+          <div class="db-name">VENTA_ERP</div>
+          <div class="db-desc">Venta real, rentabilidad, % clientes atendidos</div>
+        </div>
+        <div class="db-ops"><span class="op op-r">LEE</span></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- LEYENDA -->
+<div class="legend">
+  <div class="legend-item">
+    <div class="legend-line w"></div>
+    <span>Escribe datos al Sheet</span>
+  </div>
+  <div class="legend-item">
+    <div class="legend-line r"></div>
+    <span>Lee datos del Sheet</span>
+  </div>
+  <div class="legend-item">
+    <span style="font-family:'DM Mono',monospace;font-size:10px;background:rgba(245,166,35,.1);color:#92400e;padding:2px 8px;border-radius:4px;">ESCRIBE</span>
+    <span>El portal es autor de ese dato</span>
+  </div>
+  <div class="legend-item">
+    <span style="font-family:'DM Mono',monospace;font-size:10px;background:var(--blue-l);color:var(--blue);padding:2px 8px;border-radius:4px;">LEE</span>
+    <span>El portal consume ese dato</span>
+  </div>
+</div>
+
+<!-- FLUJOS CLAVE -->
+<div class="flows" style="margin-top:40px;">
+  <div class="section-lbl">5 flujos clave del sistema</div>
+  <div class="flows-grid">
+
+    <div class="flow-card f1">
+      <div class="flow-title">📣 Lead de marketing</div>
+      <ul class="flow-steps">
+        <li><span class="step-n">1</span>Coord. Marketing registra lead y lo asigna</li>
+        <li><span class="step-n">2</span>Sistema crea prospecto en pipeline de la vendedora</li>
+        <li><span class="step-n">3</span>Semáforo mide atención: &lt;24h verde, 24-48h amarillo, +48h rojo</li>
+        <li><span class="step-n">4</span>Vendedora registra primer contacto → semáforo se apaga</li>
+      </ul>
+      <div class="flow-dbs">
+        <span class="flow-db">LEADS_MKT</span>
+        <span class="flow-db">PROSPECTOS</span>
+        <span class="flow-db">ACTIVIDADES</span>
+      </div>
+    </div>
+
+    <div class="flow-card f2">
+      <div class="flow-title">🚀 Plan GROW mensual</div>
+      <ul class="flow-steps">
+        <li><span class="step-n">1</span>Vendedora captura plan 5+5+5 en Portal 1</li>
+        <li><span class="step-n">2</span>Coordinador lo revisa en sesión GROW (Portal 2)</li>
+        <li><span class="step-n">3</span>Aprueba o regresa con comentario</li>
+        <li><span class="step-n">4</span>Al aprobar → genera actividades en Plan de Trabajo</li>
+      </ul>
+      <div class="flow-dbs">
+        <span class="flow-db">PLAN_GROW</span>
+        <span class="flow-db">ACCIONES_GROW</span>
+      </div>
+    </div>
+
+    <div class="flow-card f3">
+      <div class="flow-title">📅 Sesión WBR semanal</div>
+      <ul class="flow-steps">
+        <li><span class="step-n">1</span>Coordinador abre sesión según tipo de semana</li>
+        <li><span class="step-n">2</span>Lee pipeline y ERP de la vendedora</li>
+        <li><span class="step-n">3</span>Registra compromisos con fecha y responsable</li>
+        <li><span class="step-n">4</span>Compromisos aparecen en Plan de Trabajo (Portal 1)</li>
+      </ul>
+      <div class="flow-dbs">
+        <span class="flow-db">SESIONES_WBR</span>
+        <span class="flow-db">COMPROMISOS</span>
+        <span class="flow-db">VENTA_ERP</span>
+      </div>
+    </div>
+
+    <div class="flow-card f4">
+      <div class="flow-title">📊 Reporte de marketing</div>
+      <ul class="flow-steps">
+        <li><span class="step-n">1</span>Coord. Marketing captura reporte semanal</li>
+        <li><span class="step-n">2</span>Desglose por vendedora se calcula automático</li>
+        <li><span class="step-n">3</span>Queda como "Pendiente validación"</li>
+        <li><span class="step-n">4</span>Coordinador valida en Aprobaciones → "Validado"</li>
+      </ul>
+      <div class="flow-dbs">
+        <span class="flow-db">REPORTES_MKT</span>
+        <span class="flow-db">LEADS_MKT</span>
+      </div>
+    </div>
+
+    <div class="flow-card f5">
+      <div class="flow-title">🏢 Cierre de prospecto</div>
+      <ul class="flow-steps">
+        <li><span class="step-n">1</span>Vendedora mueve prospecto a Ganado o Perdido</li>
+        <li><span class="step-n">2</span>Sistema obliga a registrar actividad de cierre</li>
+        <li><span class="step-n">3</span>Ganado: captura código de cliente y monto</li>
+        <li><span class="step-n">4</span>Perdido: registra razón de no cierre</li>
+      </ul>
+      <div class="flow-dbs">
+        <span class="flow-db">PROSPECTOS</span>
+        <span class="flow-db">ACTIVIDADES</span>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+</div>
+</body>
+</html>
