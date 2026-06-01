@@ -715,7 +715,7 @@ let MKT_REPORTES = [];
 //  CONEXIÓN CON GOOGLE SHEETS
 // ══════════════════════════════════════════
 const API_S1 = 'https://script.google.com/macros/s/AKfycbzkApyJsLCSq6ohALLSg6AUiGSznKAP6fDRUh8FCx8d-1r3VMrK26FMZGMjZx7rbf19/exec';
-const API_S2 = 'https://script.google.com/macros/s/AKfycbwMIVrgoBOv6XfnMhqO3syAyCEr7MacpHF9ZqOIIAoFhi51kg2Z0htau3wKlofKIbxS4g/exec';
+const API_S2 = 'https://script.google.com/macros/s/AKfycbzZqmrTcAs4ytQh0DBROrw813XP5py3EfcR1ORPnS5uRYcuiiNRaCwsRkr-WMUdAa8dMg/exec';
 
 function jsonpFetch(url) {
   return new Promise((resolve, reject) => {
@@ -878,6 +878,44 @@ function editarProspecto(id){
   openModal('modalProspecto');
 }
 
+function syncProspectoSheet(p) {
+  const data = encodeURIComponent(JSON.stringify({
+    id: p.id, vendedor: p.vendedor, nombre: p.nombre,
+    codigo: p.codigo||'', industria: p.industria, ruta: p.ruta,
+    origen: p.origen, etapa: p.etapa,
+    monto_cot: p.monto_cot||0, monto_cerr: p.monto_cerr||0,
+    razon: p.razon||'', notas: p.notas||''
+  }));
+  jsonpFetch(API_S2 + '?action=saveProspecto&data=' + data)
+    .then(r => { if(r.ok) console.log('✅ Prospecto en Sheet:', r.id); })
+    .catch(e => console.warn('⚠️ Error sync prospecto:', e));
+}
+
+function syncActividadSheet(prospectoId, act, vendedor) {
+  const data = encodeURIComponent(JSON.stringify({
+    id_prospecto: prospectoId, vendedor,
+    accion: act.accion, medio: act.medio,
+    descripcion: act.desc, fecha: act.fecha,
+    fuente: act.fuente || 'Pipeline'
+  }));
+  jsonpFetch(API_S2 + '?action=saveActividad&data=' + data)
+    .then(r => { if(r.ok) console.log('✅ Actividad en Sheet:', r.id); })
+    .catch(e => console.warn('⚠️ Error sync actividad:', e));
+}
+
+function syncCompromisoSheet(c) {
+  const data = encodeURIComponent(JSON.stringify({
+    id: c.id, vendedor: c.vendedor, mes: c.mes,
+    descripcion: c.descripcion, fecha: c.fecha,
+    estatus: c.estatus, completado: c.completado,
+    nota_cierre: c.nota_cierre||'', sesion: c.sesion||'WBR',
+    creado_por: c.creado_por||'David'
+  }));
+  jsonpFetch(API_S2 + '?action=saveCompromiso&data=' + data)
+    .then(r => { if(r.ok) console.log('✅ Compromiso en Sheet:', r.id); })
+    .catch(e => console.warn('⚠️ Error sync compromiso:', e));
+}
+
 function guardarProspecto(){
   const id=document.getElementById('pId').value;
   const datos={
@@ -906,6 +944,7 @@ function guardarProspecto(){
     }
   } else {
     PROSPECTOS.push({...datos,id:'P'+Date.now(),vendedor:rolActual.nombre,actividades:[]});
+    syncProspectoSheet(PROSPECTOS[PROSPECTOS.length-1]);
     toast('✅ Prospecto agregado');
     closeModal('modalProspecto');
     renderPipeline();
@@ -992,7 +1031,8 @@ function guardarActividad(){
     p.etapa=nuevaEtapa;
     toast('✅ Actividad registrada · Etapa → '+nuevaEtapa);
   } else {
-    toast('✅ Actividad registrada');
+    syncActividadSheet(id, nueva, p.vendedor);
+  toast('✅ Actividad registrada');
   }
   closeModal('modalActividad');
   verDetalle(id);
@@ -2704,10 +2744,12 @@ function guardarCompromiso(){
     if(c){ c.vendedor=vend; c.mes=mes; c.descripcion=desc; }
     toast('✅ Compromiso actualizado');
   } else {
-    COMPROMISOS.push({
+    const _nc = {
       id:'C'+Date.now(), vendedor:vend, descripcion:desc,
       mes, fecha:mes+'-30', estatus:'Pendiente', completado:false, nota_cierre:''
-    });
+    };
+    COMPROMISOS.push(_nc);
+    syncCompromisoSheet(_nc);
     toast('✅ Compromiso creado');
   }
   closeModal('modalCompromiso');
@@ -3304,14 +3346,14 @@ function guardarPlanGrow() {
     ...(PLAN_GROW[key].bcg||[]).map(i=>({...i, camino:'BCG'})),
     ...(PLAN_GROW[key].recuperacion||[]).map(i=>({...i, camino:'Recuperación'})),
   ];
-  fetch(API_S2, {
-    method:'POST',
-    body: JSON.stringify({
-      action:'savePlanGrow',
-      data:{ vendedor:vend, mes:new Date().toISOString().slice(0,7), items, estatus:'Borrador' }
-    })
-  }).then(r=>r.json())
-    .then(r=>{ if(r.ok) console.log('✅ Plan GROW guardado en Sheet'); })
+  // Guardar via JSONP (resuelve CORS)
+  const planData = encodeURIComponent(JSON.stringify({
+    vendedor: vend,
+    mes: new Date().toISOString().slice(0,7),
+    items, estatus:'Borrador'
+  }));
+  jsonpFetch(API_S2 + '?action=savePlanGrow&data=' + planData)
+    .then(r=>{ if(r.ok) console.log('✅ Plan GROW guardado en Sheet:', r.count); })
     .catch(e=>console.warn('⚠️ Error guardando plan:', e));
 
   toast('✅ Plan guardado como borrador');
