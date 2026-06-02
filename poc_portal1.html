@@ -760,18 +760,12 @@ async function cargarDatosS1() {
     }
     if(cat && cat.industrias && cat.industrias.length) {
       const indOpts = cat.industrias.map(i => '<option>'+i+'</option>').join('');
-      // Actualizar TODOS los selects de industria del portal
-      if(cat && cat.industrias && cat.industrias.length) {
-      const indOpts = cat.industrias.map(i => '<option>'+i+'</option>').join('');
-      // Selects de formulario: solo industrias
-      document.querySelectorAll('#pIndustria,#nlIndustria,#lmIndustria').forEach(s => { if(s) s.innerHTML = indOpts; });
-      // FILTRO: conservar "Todas" al inicio
-      const filtroInd = document.getElementById('pipFiltroIndustria');
-      if(filtroInd) filtroInd.innerHTML = '<option value="">Todas las industrias</option>' + indOpts;
-      window._industriasOpts = indOpts;
-      console.log('✅ Industrias cargadas:', cat.industrias.length);
-    }
-      // Guardar en variable global para usarla en addGrowRow y otras filas dinámicas
+      // Selects de FORMULARIO — solo industrias
+      document.querySelectorAll('#pIndustria,#nlIndustria,#lmIndustria,#compIndustria').forEach(s => { if(s) s.innerHTML = indOpts; });
+      // Filtro del Kanban — conservar "Todas" al inicio
+      const _fi = document.getElementById('pipFiltroIndustria');
+      if(_fi) _fi.innerHTML = '<option value="">Todas las industrias</option>' + indOpts;
+      // Global para addGrowRow, filas dinámicas y modal de compromisos
       window._industriasOpts = indOpts;
       console.log('✅ Industrias cargadas:', cat.industrias.length);
     }
@@ -1422,18 +1416,38 @@ function renderDash(){
       +'</div>'
     :'');
 
-  const compsThis=COMPROMISOS.filter(c=>esVend?c.vendedor===v:true).filter(c=>!c.done).slice(0,5);
+  const // Vendedora: sus compromisos Borrador o Pendiente
+  // Coordinador/Gerencia: todos los del equipo
+  compsThis = esVend
+    ? COMPROMISOS.filter(c => c.vendedor===v && c.estatus!=='Validado' && c.estatus!=='Cancelado' && !c.completado)
+    : COMPROMISOS.filter(c => c.estatus!=='Cancelado' && !c.completado).slice(0,10);
   document.getElementById('dashActividades').innerHTML=compsThis.length
     ?'<div style="overflow-x:auto"><table><thead><tr><th>Tipo</th><th>Cliente</th>'+(esVend?'':'<th>Vendedor</th>')+'<th>Fecha</th><th>Prioridad</th><th>Descripción</th><th></th></tr></thead><tbody>'
-      +compsThis.map(c=>'<tr>'
+      +compsThis.map(c=>{
+      const isCoord = !esVend;
+      const btnCell = isCoord
+        ? (c.estatus==='Validado'
+            ? '<td><span style="color:var(--green);font-size:11px;font-weight:600">✅ Validado</span></td>'
+            : '<td><button class="btn btn-p btn-sm" onclick="aprobarCompromiso(\''+c.id+'\')">✅ Validar</button></td>')
+        : (!c.completado
+            ? '<td><button class="btn btn-g btn-sm" onclick="marcarDone(\''+c.id+'\')">✓ Listo</button></td>'
+            : '<td><span style="color:var(--green);font-size:11px">✅ Listo</span></td>');
+      const estatusBadge = '<span style="font-size:10px;font-weight:600;padding:2px 6px;border-radius:4px;background:'
+        +(c.estatus==='Validado'?'#d1fae5;color:#065f46'
+          :c.estatus==='Borrador'?'rgba(245,166,35,.15);color:#92400e'
+          :c.estatus==='Completado'?'#d1fae5;color:#065f46'
+          :'rgba(37,99,235,.1);color:#1d4ed8')
+        +'">'+(c.estatus||'Pendiente')+'</span>';
+      return '<tr>'
         +'<td style="font-size:12px">'+(c.tipo||c.camino||'WBR')+'</td>'
-        +'<td style="font-size:12px;font-weight:600">'+(c.cliente||c.vendedor||'—')+'</td>'
+        +'<td style="font-size:12px">'+(c.industria||'—')+'</td>'
         +(esVend?'':'<td style="font-size:12px">'+c.vendedor+'</td>')
         +'<td style="font-size:12px">'+fmtDate(c.fecha)+'</td>'
-        +'<td>'+badgePrio(c.prioridad||'Media')+'</td>'
+        +'<td>'+estatusBadge+'</td>'
         +'<td style="font-size:12px;color:var(--text2)">'+((c.desc||c.descripcion||'').substring(0,50))+'...</td>'
-        +'<td><button class="btn btn-g btn-sm" onclick="marcarDone(\''+c.id+'\')">✓ Listo</button></td>'
-        +'</tr>').join('')+'</tbody></table></div>'
+        +btnCell
+        +'</tr>';
+    }).join('')+'</tbody></table></div>'
     :'<div style="text-align:center;padding:24px;color:var(--muted)">Sin compromisos pendientes 🎉</div>';
 }
 
@@ -1669,21 +1683,29 @@ function renderDashMkt(){
 
 
 function marcarDone(id){
-  const c=COMPROMISOS.find(x=>x.id===id);
-  if(c){c.done=true;}
+  const c = COMPROMISOS.find(x=>x.id===id);
+  if(!c) return;
+  if(!puedeEditarCompromiso()){
+    // Vendedora: solo completa con nota
+    const nota = prompt('Nota de cierre (opcional):', '') ?? '';
+    c.completado = true;
+    c.estatus = 'Completado';
+    c.nota_cierre = nota;
+    const data = encodeURIComponent(JSON.stringify({ id, completado:true, nota_cierre:nota, estatus:'Completado' }));
+    jsonpFetch(API_S2 + '?action=updateCompromiso&data=' + data)
+      .then(r => { if(r&&r.ok) console.log('✅ Compromiso completado en Sheet'); })
+      .catch(e => console.warn('⚠️ Error:', e));
+  } else {
+    c.done = true; c.completado = true; c.estatus = 'Completado';
+    const data = encodeURIComponent(JSON.stringify({ id, completado:true, estatus:'Completado' }));
+    jsonpFetch(API_S2 + '?action=updateCompromiso&data=' + data)
+      .then(r => { if(r&&r.ok) console.log('✅ Compromiso completado en Sheet'); })
+      .catch(e => console.warn('⚠️ Error:', e));
+  }
   toast('✅ Compromiso completado');
   renderDash();
   renderPlan();
 }
-
-// ══════════════════════════════════════════
-//  PIPELINE
-// ══════════════════════════════════════════
-// ══════════════════════════════════════════
-//  ACTIVIDADES DEL PIPELINE + PLAN UNIFICADO
-// ══════════════════════════════════════════
-let planTabActual = 'pipe';
-
 function switchPlanTab(tab){
   planTabActual = tab;
   ['pipe','wbr','grow','todo'].forEach(t=>{
@@ -2207,23 +2229,7 @@ function openNuevoCompromiso(){
   openModal('modalCompromiso');
 }
 
-function guardarCompromiso(){
-  const c={
-    id:'C'+Date.now(),
-    vendedor:rolActual.nombre,
-    tipo:document.getElementById('compTipo').value,
-    cliente:document.getElementById('compCliente').value,
-    fecha:document.getElementById('compFecha').value,
-    prioridad:document.getElementById('compPrioridad').value,
-    desc:document.getElementById('compDesc').value,
-    done:false
-  };
-  if(!c.cliente||!c.desc){toast('Completa los campos obligatorios','err');return;}
-  COMPROMISOS.push(c);
-  toast('✅ Compromiso agregado');
-  closeModal('modalCompromiso');
-  renderPlan();
-}
+
 
 // ══════════════════════════════════════════
 //  MARKETING
@@ -2514,7 +2520,7 @@ function renderGrowForm(vendNombre, plan){
         +rows.map((item,i)=>'<div class="plan-row" style="display:flex;gap:4px;align-items:center;padding:5px 8px;background:#fff;border-radius:7px;margin-bottom:4px;border:1px solid rgba(0,0,0,.06)">'
           +'<span style="font-size:11px;color:var(--muted);font-weight:700;width:16px;flex-shrink:0">'+(i+1)+'</span>'
           +'<input placeholder="'+ph+'" value="'+(item.val||'')+'" style="flex:2;padding:4px 7px;font-size:11px">'
-    + '<select style="flex:2;padding:4px 6px;font-size:11px"><option>Acero</option><option>Agencia de Autos</option><option>Automóviles</option><option>Bachillerato</option><option>Bares</option><option>Casa de Limpieza</option><option>Cerveceras</option><option>Cine</option><option>Clínicas</option><option>Colegios</option><option>Comercializadora</option><option>Comercio</option><option>Constructoras</option><option>Consultorios</option><option>Despachos</option><option>Dulcería</option><option>Electrodomésticos</option><option>Electrónica</option><option>Estética</option><option>Fabricante</option><option>Farmacia</option><option>Ferretería/Tlapalería</option><option>Funeraria</option><option>Gasolineras</option><option>Gimnasios</option><option>Gobierno Federal</option><option>Gobierno del Estado</option><option>Hospitales</option><option>Hoteles</option><option>Industria</option><option>Institucionales</option><option>Licitadores</option><option>Minería</option><option>Panadería</option><option>Papeleras</option><option>Parque Acuático</option><option>Parque Recreativo</option><option>Pastelería</option><option>Prod. de Alimentos</option><option>Restaurantes</option><option>Salón de Eventos</option><option>Servicios Integrales</option><option>Telecomunicaciones</option><option>Transnacionales</option><option>Turismo</option><option>Universidad</option><option>Uso Personal</option><option>Venta de Materias Primas</option><option>Zapaterías</option></select>'
+    + '<select style="flex:2;padding:4px 6px;font-size:11px"><option>Distribuidores</option><option>Industria</option><option>Uso Personal</option><option>Comercio</option><option>Turismo y Centros Recreativos</option><option>Oficinas</option><option>Inst. de Salud</option><option>Inst. Gubernamentales</option><option>Fabricantes</option><option>Inst. Edu. Públicas y Privadas</option></select>'
 
           +'<select style="flex:1;padding:4px 6px;font-size:11px">'+(item.ruta==='Local'?'<option selected>Local</option>':'<option>Local</option>')+(item.ruta==='Sahagún'?'<option selected>Sahagún</option>':'<option>Sahagún</option>')+(item.ruta==='Tizayuca'?'<option selected>Tizayuca</option>':'<option>Tizayuca</option>')+(item.ruta==='Corporativo'?'<option selected>Corporativo</option>':'<option>Corporativo</option>')+(item.ruta==='Tulancingo'?'<option selected>Tulancingo</option>':'<option>Tulancingo</option>')+(item.ruta==='Actopan'?'<option selected>Actopan</option>':'<option>Actopan</option>')+(item.ruta==='Huejutla'?'<option selected>Huejutla</option>':'<option>Huejutla</option>')+(item.ruta==='Ixmiquilpan'?'<option selected>Ixmiquilpan</option>':'<option>Ixmiquilpan</option>')+(item.ruta==='Huasca'?'<option selected>Huasca</option>':'<option>Huasca</option>')+(item.ruta==='Tlaxcala'?'<option selected>Tlaxcala</option>':'<option>Tlaxcala</option>')+(item.ruta==='Chignauhuapan'?'<option selected>Chignauhuapan</option>':'<option>Chignauhuapan</option>')+(item.ruta==='Zacualtipán'?'<option selected>Zacualtipán</option>':'<option>Zacualtipán</option>')+(item.ruta==='Zimapán'?'<option selected>Zimapán</option>':'<option>Zimapán</option>')+(item.ruta==='Puebla'?'<option selected>Puebla</option>':'<option>Puebla</option>')+(item.ruta==='México'?'<option selected>México</option>':'<option>México</option>')+'</select>'
           +'<button onclick="quitarPlanRow(this)" style="padding:2px 6px;border:none;background:transparent;color:var(--muted);cursor:pointer;font-size:14px;flex-shrink:0">✕</button>'
@@ -2699,13 +2705,13 @@ function marcarCompromiso(id){
 }
 
 function abrirNuevoCompromiso(vendedor){
-  // Solo coordinador/gerencia
   if(!puedeEditarCompromiso()){ toast('Solo el coordinador puede crear compromisos','err'); return; }
   let m = document.getElementById('modalCompromiso');
   if(!m){
     m = document.createElement('div');
     m.id = 'modalCompromiso';
     m.className = 'modal-overlay';
+    const indOpts = window._industriasOpts || '<option>Comercializadora</option>';
     m.innerHTML = '<div class="modal" style="max-width:480px">'
       +'<div class="modal-header"><h3 id="compTit">Nuevo compromiso</h3>'
       +'<button class="modal-close" onclick="closeModal(\'modalCompromiso\')">✕</button></div>'
@@ -2713,10 +2719,13 @@ function abrirNuevoCompromiso(vendedor){
       +'<div class="form-group"><label>Vendedor/a</label>'
       +'<select id="compVend">'
       +EQUIPO.map(v=>'<option>'+v.nombre+'</option>').join('')
-      +'<option>Lic. Elizabeth Díaz</option>'
       +'</select></div>'
+      +'<div class="g2">'
       +'<div class="form-group"><label>Mes</label>'
       +'<input type="month" id="compMes" value="'+new Date().toISOString().slice(0,7)+'"></div>'
+      +'<div class="form-group"><label>Industria</label>'
+      +'<select id="compIndustria">'+indOpts+'</select></div>'
+      +'</div>'
       +'<div class="form-group"><label>Descripción del compromiso</label>'
       +'<textarea id="compDesc" rows="3" placeholder="¿Qué se comprometió a hacer?"></textarea></div>'
       +'<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">'
@@ -2725,6 +2734,9 @@ function abrirNuevoCompromiso(vendedor){
       +'</div></div>';
     document.body.appendChild(m);
   }
+  // Actualizar industrias si ya cargaron
+  const selInd = document.getElementById('compIndustria');
+  if(selInd && window._industriasOpts) selInd.innerHTML = window._industriasOpts;
   if(vendedor){ const sel=document.getElementById('compVend'); if(sel) sel.value=vendedor; }
   document.getElementById('compId').value='';
   document.getElementById('compDesc').value='';
@@ -2743,19 +2755,30 @@ function editarCompromiso(id){
 }
 
 function guardarCompromiso(){
-  const id   = document.getElementById('compId').value;
-  const vend = document.getElementById('compVend').value;
-  const mes  = document.getElementById('compMes').value;
-  const desc = document.getElementById('compDesc').value.trim();
+  const id   = document.getElementById('compId')?.value;
+  const vend = document.getElementById('compVend')?.value;
+  const mes  = document.getElementById('compMes')?.value;
+  const ind  = document.getElementById('compIndustria')?.value || '';
+  const desc = document.getElementById('compDesc')?.value?.trim();
   if(!desc){ toast('Escribe la descripción del compromiso','err'); return; }
+
+  const esCoord = puedeEditarCompromiso();
+
   if(id){
     const c = COMPROMISOS.find(x=>x.id===id);
-    if(c){ c.vendedor=vend; c.mes=mes; c.descripcion=desc; }
+    if(c){
+      c.vendedor=vend; c.mes=mes; c.industria=ind; c.descripcion=desc;
+      c.estatus = esCoord ? 'Validado' : 'Borrador';
+      syncCompromisoSheet(c);
+    }
     toast('✅ Compromiso actualizado');
   } else {
     const _nc = {
       id:'C'+Date.now(), vendedor:vend, descripcion:desc,
-      mes, fecha:mes+'-30', estatus:'Pendiente', completado:false, nota_cierre:''
+      mes, industria:ind,
+      fecha:mes+'-30',
+      estatus: esCoord ? 'Validado' : 'Borrador',
+      completado:false, nota_cierre:''
     };
     COMPROMISOS.push(_nc);
     syncCompromisoSheet(_nc);
@@ -2764,6 +2787,21 @@ function guardarCompromiso(){
   closeModal('modalCompromiso');
   renderAprobaciones();
   renderPlan();
+  renderDash();
+}
+
+function aprobarCompromiso(id){
+  if(!puedeEditarCompromiso()){ toast('Sin permisos','err'); return; }
+  const c = COMPROMISOS.find(x=>x.id===id);
+  if(!c) return;
+  c.estatus = 'Validado';
+  // Sync al Sheet
+  const data = encodeURIComponent(JSON.stringify({ id, estatus:'Validado' }));
+  jsonpFetch(API_S2 + '?action=updateCompromiso&data=' + data)
+    .then(r => { if(r&&r.ok) console.log('✅ Compromiso validado en Sheet'); })
+    .catch(e => console.warn('⚠️ Error validando:', e));
+  toast('✅ Compromiso validado');
+  renderAprobaciones();
   renderDash();
 }
 
@@ -3048,7 +3086,7 @@ function addGrowRow(pid, placeholder){
   row.style.cssText = 'display:flex;gap:6px;align-items:center;padding:6px 8px;background:var(--surface2);border-radius:7px;margin-bottom:4px;border:1px solid var(--border)';
   row.innerHTML = '<span style="font-size:11px;color:var(--muted);width:16px;flex-shrink:0">' + idx + '</span>'
     + '<input placeholder="' + (placeholder||'Nombre / código') + '" style="flex:3;padding:4px 7px;font-size:12px">'
-    + '<select style="flex:2;padding:4px 6px;font-size:11px"><option>Acero</option><option>Agencia de Autos</option><option>Automóviles</option><option>Bachillerato</option><option>Bares</option><option>Casa de Limpieza</option><option>Cerveceras</option><option>Cine</option><option>Clínicas</option><option>Colegios</option><option>Comercializadora</option><option>Comercio</option><option>Constructoras</option><option>Consultorios</option><option>Despachos</option><option>Dulcería</option><option>Electrodomésticos</option><option>Electrónica</option><option>Estética</option><option>Fabricante</option><option>Farmacia</option><option>Ferretería/Tlapalería</option><option>Funeraria</option><option>Gasolineras</option><option>Gimnasios</option><option>Gobierno Federal</option><option>Gobierno del Estado</option><option>Hospitales</option><option>Hoteles</option><option>Industria</option><option>Institucionales</option><option>Licitadores</option><option>Minería</option><option>Panadería</option><option>Papeleras</option><option>Parque Acuático</option><option>Parque Recreativo</option><option>Pastelería</option><option>Prod. de Alimentos</option><option>Restaurantes</option><option>Salón de Eventos</option><option>Servicios Integrales</option><option>Telecomunicaciones</option><option>Transnacionales</option><option>Turismo</option><option>Universidad</option><option>Uso Personal</option><option>Venta de Materias Primas</option><option>Zapaterías</option></select>'
+    + '<select style="flex:2;padding:4px 6px;font-size:11px"><option>Distribuidores</option><option>Industria</option><option>Uso Personal</option><option>Comercio</option><option>Turismo y Centros Recreativos</option><option>Oficinas</option><option>Inst. de Salud</option><option>Inst. Gubernamentales</option><option>Fabricantes</option><option>Inst. Edu. Públicas y Privadas</option></select>'
 
     + '<select style="flex:1;padding:4px 6px;font-size:11px"><option>Local</option><option>Sahagún</option><option>Tizayuca</option><option>Corporativo</option><option>Tulancingo</option><option>Actopan</option><option>Huejutla</option><option>Ixmiquilpan</option><option>Huasca</option><option>Tlaxcala</option><option>Chignauhuapan</option><option>Zacualtipán</option><option>Zimapán</option><option>Puebla</option><option>México</option></select>'
 
@@ -3071,7 +3109,7 @@ function openNuevoLeadMkt(){
       + '<div class="g2"><div class="form-group"><label>Origen</label>'
       + '<select id="nlOrigen"><option>Facebook</option><option>Google</option><option>Web</option><option>Recomendación</option><option>Ruta</option></select></div>'
       + '<div class="form-group"><label>Industria</label>'
-      + '<select id="nlIndustria"><option>Comercio</option><option>Manufactura</option><option>Servicios</option><option>Construcción</option></select></div></div>'
+      + '<select id="nlIndustria"><option>Distribuidores</option><option>Industria</option><option>Uso Personal</option><option>Comercio</option><option>Turismo y Centros Recreativos</option><option>Oficinas</option><option>Inst. de Salud</option><option>Inst. Gubernamentales</option><option>Fabricantes</option><option>Inst. Edu. Públicas y Privadas</option></select></div></div>'
       + '<div class="g2"><div class="form-group"><label>Ruta</label>'
       + '<select id="nlZona"><option>Norte</option><option>Sur</option><option>Centro</option><option>Oriente</option></select></div>'
       + '<div class="form-group"><label>Asignar a</label>'
@@ -3320,10 +3358,10 @@ function actividadEnFiltro(fecha){
   return true;
 }
 
-function guardarPlanGrow(vendParam) {
+function guardarPlanGrow(vendParam, esAprobacion) {
   const vend = vendParam || rolActual.nombre;
   const key  = 'grow_' + vend;
-  if (!PLAN_GROW[key]) PLAN_GROW[key] = {};
+  if (!PLAN_GROW[key]) PLAN_GROW[key] = { prospectos:[], bcg:[], recuperacion:[] };
   const suf = vend.replace(/ /g, '_');
 
   const leerFilas = (containerId) => {
@@ -3336,29 +3374,36 @@ function guardarPlanGrow(vendParam) {
     return rows;
   };
 
-  PLAN_GROW[key].prospectos     = leerFilas('planProspectos_'+suf);
-  PLAN_GROW[key].bcg            = leerFilas('planBCG_'+suf);
-  PLAN_GROW[key].recuperacion   = leerFilas('planRecup_'+suf);
-  PLAN_GROW[key].estatus        = 'Borrador';
-  PLAN_GROW[key].fecha_guardado = new Date().toISOString().slice(0,10);
+  // Solo leer del formulario si está abierto en modo edición
+  if (document.getElementById('planProspectos_'+suf)) {
+    PLAN_GROW[key].prospectos   = leerFilas('planProspectos_'+suf);
+    PLAN_GROW[key].bcg          = leerFilas('planBCG_'+suf);
+    PLAN_GROW[key].recuperacion = leerFilas('planRecup_'+suf);
+  }
+  PLAN_GROW[key].prospectos   = PLAN_GROW[key].prospectos   || [];
+  PLAN_GROW[key].bcg          = PLAN_GROW[key].bcg          || [];
+  PLAN_GROW[key].recuperacion = PLAN_GROW[key].recuperacion || [];
+
+  if (!esAprobacion) {
+    PLAN_GROW[key].estatus        = 'Borrador';
+    PLAN_GROW[key].fecha_guardado = new Date().toISOString().slice(0,10);
+  }
 
   const items = [
-    ...PLAN_GROW[key].prospectos.map(i   => ({ nombre:i.val, industria:i.industria, ruta:i.ruta, camino:'Prospección' })),
-    ...PLAN_GROW[key].bcg.map(i          => ({ nombre:i.val, industria:i.industria, ruta:i.ruta, camino:'BCG' })),
-    ...PLAN_GROW[key].recuperacion.map(i => ({ nombre:i.val, industria:i.industria, ruta:i.ruta, camino:'Recuperación' })),
+    ...PLAN_GROW[key].prospectos.map(i   => ({ nombre:i.val||i.nombre, industria:i.industria, ruta:i.ruta, camino:'Prospección' })),
+    ...PLAN_GROW[key].bcg.map(i          => ({ nombre:i.val||i.nombre, industria:i.industria, ruta:i.ruta, camino:'BCG' })),
+    ...PLAN_GROW[key].recuperacion.map(i => ({ nombre:i.val||i.nombre, industria:i.industria, ruta:i.ruta, camino:'Recuperación' })),
   ];
 
   const planData = encodeURIComponent(JSON.stringify({
-    vendedor: vend,
-    mes: new Date().toISOString().slice(0,7),
-    items, estatus: 'Borrador'
+    vendedor: vend, mes: new Date().toISOString().slice(0,7),
+    items, estatus: PLAN_GROW[key].estatus || 'Borrador'
   }));
   jsonpFetch(API_S2 + '?action=savePlanGrow&data=' + planData)
-    .then(r => { if(r.ok) console.log('✅ Plan GROW guardado en Sheet:', r.count); })
+    .then(r => { if(r && r.ok) console.log('✅ Plan GROW guardado en Sheet:', r.count); })
     .catch(e => console.warn('⚠️ Error guardando plan:', e));
 
-  toast('✅ Plan guardado como borrador');
-  initGrow();
+  if (!esAprobacion) { toast('✅ Plan guardado como borrador'); initGrow(); }
 }
 
 // ══════════════════════════════════════════
