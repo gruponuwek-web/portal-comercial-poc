@@ -757,21 +757,33 @@ async function cargarDatosS1() {
       console.log('✅ Industrias cargadas:', cat.industrias.length);
     }
 
-    // Cargar compromisos desde S2
-    const mesActivo2 = new Date().toISOString().slice(0,7);
-    const comps = await jsonpFetch(API_S2 + '?action=getCompromisos&vendedor=' + encodeURIComponent(rolActual.nombre));
+    // Determinar si es coordinador/gerencia para cargar TODOS los datos
+    const esCoordOrGer = rolActual.tipo==='coordinador' || rolActual.tipo==='gerencia';
+
+    // Cargar compromisos — coordinador ve todos, vendedora solo los suyos
+    const compUrl = esCoordOrGer
+      ? API_S2 + '?action=getCompromisos'
+      : API_S2 + '?action=getCompromisos&vendedor=' + encodeURIComponent(rolActual.nombre);
+    const comps = await jsonpFetch(compUrl);
+    COMPROMISOS.length = 0;
     if(comps && comps.length) {
-      COMPROMISOS.length = 0;
       comps.forEach(c => COMPROMISOS.push(c));
       console.log('✅ Compromisos cargados:', comps.length);
+    } else {
+      console.log('ℹ️ Sin compromisos en Sheet todavía');
     }
 
-    // Cargar pipeline desde S2
-    const pipe = await jsonpFetch(API_S2 + '?action=getPipeline&vendedor=' + encodeURIComponent(rolActual.nombre));
+    // Cargar pipeline — coordinador ve todos, vendedora solo los suyos
+    const pipeUrl = esCoordOrGer
+      ? API_S2 + '?action=getPipeline'
+      : API_S2 + '?action=getPipeline&vendedor=' + encodeURIComponent(rolActual.nombre);
+    const pipe = await jsonpFetch(pipeUrl);
+    PROSPECTOS.length = 0;
     if(pipe && pipe.length) {
-      PROSPECTOS.length = 0;
       pipe.forEach(p => PROSPECTOS.push({...p, actividades:[]}));
       console.log('✅ Pipeline cargado:', pipe.length);
+    } else {
+      console.log('ℹ️ Sin pipeline en Sheet todavía');
     }
 
     renderDash();
@@ -1255,6 +1267,8 @@ function cambiarRol(){
   document.getElementById('page-dashboard').classList.add('active');
   document.querySelector('.nav-item[onclick*="dashboard"]')?.classList.add('active');
   currentPage = 'dashboard';
+  // Recargar datos del Sheet para el nuevo rol
+  cargarDatosS1();
 }
 
 function nav(el,page){
@@ -3468,7 +3482,8 @@ function guardarPlanGrow(vendParam, esAprobacion) {
 // ══════════════════════════════════════════
 cambiarRol();
 renderDash();
-cargarDatosS1().then(() => { cambiarRol(); renderDash(); });
+// Cargar datos reales del Sheet al iniciar
+cargarDatosS1();
 </script>
 </body>
 </html>
