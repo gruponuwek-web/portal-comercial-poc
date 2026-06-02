@@ -166,6 +166,7 @@ tr:hover td{background:#fafbfc;}
 .plan-vista-btn{font-size:11px;font-weight:600;padding:5px 12px;border:none;background:transparent;color:var(--muted);cursor:pointer;border-radius:6px;font-family:inherit;transition:all .15s;}
 .plan-vista-btn.active{background:var(--white);color:var(--navy,#1a2744);box-shadow:0 1px 4px rgba(26,39,68,.12);}
 .plan-vista-btn:hover:not(.active){color:var(--text);}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
 </style>
 </head>
 <body>
@@ -184,7 +185,7 @@ tr:hover td{background:#fafbfc;}
     <option value="coordinador"  data-nombre="David"               data-rol="Coordinador Comercial">David — Coordinador Comercial</option>
     <option value="mkt"          data-nombre="Hugo"                data-rol="Coord. Marketing">Hugo — Coord. Marketing</option>
     <option value="vendedor"     data-nombre="Amairani"            data-rol="Vendedora">Amairani — Vendedora</option>
-    <option value="vendedor"     data-nombre="Claudia"             data-rol="Vendedora">Claudia — Vendedora</option>
+    <option value="vendedor"     data-nombre="Adriana"             data-rol="Vendedora">Adriana — Vendedora</option>
     <option value="vendedor"     data-nombre="Itzel Hernández"     data-rol="Vendedora">Itzel Hernández — Vendedora</option>
     <option value="vendedor"     data-nombre="Vacante"             data-rol="Vendedor">Vacante — Vendedor</option>
     <option value="vendedor"     data-nombre="Edwin"               data-rol="Vendedor">Edwin — Vendedor</option>
@@ -217,6 +218,7 @@ tr:hover td{background:#fafbfc;}
     <div style="display:flex;align-items:center;gap:10px">
       <div class="avatar" id="avatarSidebar">AT</div>
       <div>
+        <div id="syncIndicator" style="display:none;font-size:10px;color:var(--gold);font-weight:600;padding:3px 8px;background:rgba(245,166,35,.1);border-radius:20px;margin-bottom:4px;text-align:center;animation:pulse 1.5s infinite">⟳ Actualizando ando...</div>
         <div style="font-size:13px;font-weight:500" id="nombreSidebar">Ana Torres</div>
         <div style="font-size:11px;color:var(--muted)" id="rolSidebar">Vendedora</div>
       </div>
@@ -238,7 +240,7 @@ tr:hover td{background:#fafbfc;}
           <option value="">Todo el equipo</option>
           <option>Lic. Elizabeth Díaz</option>
           <option>Amairani</option>
-          <option>Claudia</option>
+          <option>Adriana</option>
           <option>Itzel Hernández</option>
           <option>Edwin</option>
           <option>Veronica</option>
@@ -374,7 +376,7 @@ tr:hover td{background:#fafbfc;}
     <select id="actEquipoVend" onchange="renderActividadesEquipo()" style="width:auto;min-width:160px">
     <option value="">Todo el equipo</option>
     <option>Lic. Elizabeth Díaz</option>
-    <option>Amairani</option><option>Claudia</option>
+    <option>Amairani</option><option>Adriana</option>
     <option>Itzel Hernández</option><option>Edwin</option>
     <option>Veronica</option><option>Vacante</option>
   </select>
@@ -615,18 +617,18 @@ tr:hover td{background:#fafbfc;}
 const EQUIPO = [
   {nombre:'Lic. Elizabeth Díaz', rol:'Gerencia Comercial', ruta:'Local'},
   {nombre:'Amairani',            rol:'Vendedora', ruta:'Local'},
-  {nombre:'Claudia',             rol:'Vendedora', ruta:'Local'},
+  {nombre:'Adriana',             rol:'Vendedora', ruta:'Local'},
   {nombre:'Itzel Hernández',     rol:'Vendedora', ruta:'Local'},
   {nombre:'Vacante',             rol:'Vendedor',  ruta:'—'},
   {nombre:'Edwin',               rol:'Vendedor',  ruta:'Local'},
   {nombre:'Veronica',            rol:'Vendedora', ruta:'Local'},
 ];
-const USUARIOS_CON_METAS = ['Lic. Elizabeth Díaz','Amairani','Claudia','Itzel Hernández','Edwin','Veronica','Vacante'];
+const USUARIOS_CON_METAS = ['Lic. Elizabeth Díaz','Amairani','Adriana','Itzel Hernández','Edwin','Veronica','Vacante'];
 
 const carteraData = {
   'Lic. Elizabeth Díaz': {cartera_total:0, atendidos:0},
   'Amairani':            {cartera_total:0, atendidos:0},
-  'Claudia':             {cartera_total:0, atendidos:0},
+  'Adriana':             {cartera_total:0, atendidos:0},
   'Itzel Hernández':     {cartera_total:0, atendidos:0},
   'Edwin':               {cartera_total:0, atendidos:0},
   'Veronica':            {cartera_total:0, atendidos:0},
@@ -640,7 +642,7 @@ const METAS_POR_MES = {
   '2026-05': {
     'Lic. Elizabeth Díaz': {venta:0, rentabilidad:0, nuevos:0, recuperados:0},
     'Amairani':            {venta:0, rentabilidad:0, nuevos:0, recuperados:0},
-    'Claudia':             {venta:0, rentabilidad:0, nuevos:0, recuperados:0},
+    'Adriana':             {venta:0, rentabilidad:0, nuevos:0, recuperados:0},
     'Itzel Hernández':     {venta:0, rentabilidad:0, nuevos:0, recuperados:0},
     'Edwin':               {venta:0, rentabilidad:0, nuevos:0, recuperados:0},
     'Veronica':            {venta:0, rentabilidad:0, nuevos:0, recuperados:0},
@@ -649,7 +651,7 @@ const METAS_POR_MES = {
   '2026-06': {
     'Lic. Elizabeth Díaz': {venta:0, rentabilidad:0, nuevos:0, recuperados:0},
     'Amairani':            {venta:0, rentabilidad:0, nuevos:0, recuperados:0},
-    'Claudia':             {venta:0, rentabilidad:0, nuevos:0, recuperados:0},
+    'Adriana':             {venta:0, rentabilidad:0, nuevos:0, recuperados:0},
     'Itzel Hernández':     {venta:0, rentabilidad:0, nuevos:0, recuperados:0},
     'Edwin':               {venta:0, rentabilidad:0, nuevos:0, recuperados:0},
     'Veronica':            {venta:0, rentabilidad:0, nuevos:0, recuperados:0},
@@ -720,11 +722,25 @@ function jsonpFetch(url) {
 }
 
 async function cargarDatosS1() {
+  const syncEl = document.getElementById('syncIndicator');
+  if(syncEl) syncEl.style.display = 'block';
+
   try {
     const mesActivo = new Date().toISOString().slice(0,7);
+    const esCoordOrGer = rolActual.tipo==='coordinador' || rolActual.tipo==='gerencia';
 
-    // Metas del mes
-    const metas = await jsonpFetch(API_S1 + '?action=getMetas&mes=' + mesActivo);
+    // Lanzar TODAS las llamadas en paralelo
+    const compUrl = esCoordOrGer ? API_S2+'?action=getCompromisos' : API_S2+'?action=getCompromisos&vendedor='+encodeURIComponent(rolActual.nombre);
+    const pipeUrl = esCoordOrGer ? API_S2+'?action=getPipeline'    : API_S2+'?action=getPipeline&vendedor='+encodeURIComponent(rolActual.nombre);
+
+    const [metas, cat, comps, pipe] = await Promise.all([
+      jsonpFetch(API_S1 + '?action=getMetas&mes=' + mesActivo),
+      jsonpFetch(API_S1 + '?action=getCatalogos'),
+      jsonpFetch(compUrl),
+      jsonpFetch(pipeUrl),
+    ]);
+
+    // Metas del mes — ya cargadas en Promise.all
     if(metas && metas.length) {
       metas.forEach(m => {
         if(!METAS_POR_MES[m.mes]) METAS_POR_MES[m.mes] = {};
@@ -738,8 +754,7 @@ async function cargarDatosS1() {
       console.log('✅ Metas cargadas:', metas.length);
     }
 
-    // Catálogos
-    const cat = await jsonpFetch(API_S1 + '?action=getCatalogos');
+    // Catálogos — ya cargados en Promise.all
     if(cat && cat.rutas && cat.rutas.length) {
       const rutaOpts = cat.rutas.map(r => '<option>'+r+'</option>').join('');
       document.querySelectorAll('#pZona,#elZona,#nlZona,#lmZona').forEach(s => { if(s) s.innerHTML = rutaOpts; });
@@ -757,14 +772,8 @@ async function cargarDatosS1() {
       console.log('✅ Industrias cargadas:', cat.industrias.length);
     }
 
-    // Determinar si es coordinador/gerencia para cargar TODOS los datos
-    const esCoordOrGer = rolActual.tipo==='coordinador' || rolActual.tipo==='gerencia';
 
-    // Cargar compromisos — coordinador ve todos, vendedora solo los suyos
-    const compUrl = esCoordOrGer
-      ? API_S2 + '?action=getCompromisos'
-      : API_S2 + '?action=getCompromisos&vendedor=' + encodeURIComponent(rolActual.nombre);
-    const comps = await jsonpFetch(compUrl);
+    // Compromisos — ya cargados en Promise.all
     COMPROMISOS.length = 0;
     if(comps && comps.length) {
       comps.forEach(c => COMPROMISOS.push(c));
@@ -773,11 +782,7 @@ async function cargarDatosS1() {
       console.log('ℹ️ Sin compromisos en Sheet todavía');
     }
 
-    // Cargar pipeline — coordinador ve todos, vendedora solo los suyos
-    const pipeUrl = esCoordOrGer
-      ? API_S2 + '?action=getPipeline'
-      : API_S2 + '?action=getPipeline&vendedor=' + encodeURIComponent(rolActual.nombre);
-    const pipe = await jsonpFetch(pipeUrl);
+    // Pipeline — ya cargado en Promise.all
     PROSPECTOS.length = 0;
     if(pipe && pipe.length) {
       pipe.forEach(p => PROSPECTOS.push({...p, actividades:[]}));
@@ -787,9 +792,12 @@ async function cargarDatosS1() {
     }
 
     renderDash();
+    if(syncEl) syncEl.style.display = 'none';
+    console.log('✅ Sincronización completa');
 
   } catch(err) {
     console.warn('⚠️ No se pudo conectar al S1 Maestro:', err.message);
+    if(syncEl){ syncEl.textContent = '⚠️ Sin conexión al Sheet'; setTimeout(()=>{ if(syncEl) syncEl.style.display='none'; }, 3000); }
   }
 }
 
@@ -1233,9 +1241,12 @@ function cambiarRol(){
   const vNombreComp = esVend ? rolActual.nombre : (document.getElementById('dashFVend')?.value||'');
   // Contar compromisos del mes activo del usuario seleccionado
   const mesActual = new Date().toISOString().slice(0,7);
+  const mesKPI = new Date().toISOString().slice(0,7);
   const compTotal = COMPROMISOS.filter(c => {
     if(vNombreComp && c.vendedor !== vNombreComp) return false;
-    return c.estatus !== 'Cancelado';
+    if(c.estatus === 'Cancelado') return false;
+    // Mostrar del mes activo O si no tiene mes (compatibilidad)
+    return !c.mes || c.mes === mesKPI;
   });
   const compCerrados = compTotal.filter(c=>c.completado||c.estatus==='Completado');
   const pctComp = compTotal.length>0 ? Math.round(compCerrados.length/compTotal.length*100) : 0;
@@ -2794,14 +2805,19 @@ function guardarCompromiso(){
   const esCoord = puedeEditarCompromiso();
 
   if(id){
-    const c = COMPROMISOS.find(x=>x.id===id);
-    if(c){
-      c.vendedor=vend; c.mes=mes; c.industria=ind; c.descripcion=desc;
-      c.estatus = esCoord ? 'Validado' : 'Borrador';
-      syncCompromisoSheet(c);
+    // Editar — actualizar en local Y en Sheet (no duplicar)
+    const idx = COMPROMISOS.findIndex(x=>x.id===id);
+    if(idx>=0){
+      COMPROMISOS[idx] = {
+        ...COMPROMISOS[idx],
+        vendedor:vend, mes, industria:ind, descripcion:desc,
+        estatus: esCoord ? 'Validado' : COMPROMISOS[idx].estatus||'Borrador'
+      };
+      syncCompromisoSheet(COMPROMISOS[idx]);
     }
     toast('✅ Compromiso actualizado');
   } else {
+    // Nuevo — crear en local y en Sheet
     const _nc = {
       id:'C'+Date.now(), vendedor:vend, descripcion:desc,
       mes, industria:ind,
