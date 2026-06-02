@@ -761,7 +761,16 @@ async function cargarDatosS1() {
     if(cat && cat.industrias && cat.industrias.length) {
       const indOpts = cat.industrias.map(i => '<option>'+i+'</option>').join('');
       // Actualizar TODOS los selects de industria del portal
-      document.querySelectorAll('#pIndustria,#nlIndustria,#lmIndustria,#pipFiltroIndustria').forEach(s => { if(s) s.innerHTML = indOpts; });
+      if(cat && cat.industrias && cat.industrias.length) {
+      const indOpts = cat.industrias.map(i => '<option>'+i+'</option>').join('');
+      // Selects de formulario: solo industrias
+      document.querySelectorAll('#pIndustria,#nlIndustria,#lmIndustria').forEach(s => { if(s) s.innerHTML = indOpts; });
+      // FILTRO: conservar "Todas" al inicio
+      const filtroInd = document.getElementById('pipFiltroIndustria');
+      if(filtroInd) filtroInd.innerHTML = '<option value="">Todas las industrias</option>' + indOpts;
+      window._industriasOpts = indOpts;
+      console.log('✅ Industrias cargadas:', cat.industrias.length);
+    }
       // Guardar en variable global para usarla en addGrowRow y otras filas dinámicas
       window._industriasOpts = indOpts;
       console.log('✅ Industrias cargadas:', cat.industrias.length);
@@ -3311,50 +3320,42 @@ function actividadEnFiltro(fecha){
   return true;
 }
 
-function guardarPlanGrow() {
-  const vend = rolActual.nombre;
+function guardarPlanGrow(vendParam) {
+  const vend = vendParam || rolActual.nombre;
   const key  = 'grow_' + vend;
   if (!PLAN_GROW[key]) PLAN_GROW[key] = {};
+  const suf = vend.replace(/ /g, '_');
 
-  // Recopilar filas de cada sección
   const leerFilas = (containerId) => {
     const rows = [];
-    document.querySelectorAll('#' + containerId + ' .grow-plan-row').forEach(row => {
-      const inputs  = row.querySelectorAll('input');
+    document.querySelectorAll('#'+containerId+' .plan-row, #'+containerId+' .grow-plan-row').forEach(row => {
+      const nombre  = row.querySelector('input')?.value?.trim();
       const selects = row.querySelectorAll('select');
-      const nombre  = inputs[0]?.value?.trim();
-      if (nombre) {
-        rows.push({
-          nombre,
-          industria: selects[0]?.value || '',
-          ruta:      selects[1]?.value || ''
-        });
-      }
+      if (nombre) rows.push({ val: nombre, industria: selects[0]?.value||'', ruta: selects[1]?.value||'' });
     });
     return rows;
   };
 
-  PLAN_GROW[key].prospectos    = leerFilas('growProspectos');
-  PLAN_GROW[key].bcg           = leerFilas('growBCG');
-  PLAN_GROW[key].recuperacion  = leerFilas('growRecuperacion');
-  PLAN_GROW[key].estatus       = 'Borrador';
+  PLAN_GROW[key].prospectos     = leerFilas('planProspectos_'+suf);
+  PLAN_GROW[key].bcg            = leerFilas('planBCG_'+suf);
+  PLAN_GROW[key].recuperacion   = leerFilas('planRecup_'+suf);
+  PLAN_GROW[key].estatus        = 'Borrador';
   PLAN_GROW[key].fecha_guardado = new Date().toISOString().slice(0,10);
 
-  // Guardar en S2 Comercial
   const items = [
-    ...(PLAN_GROW[key].prospectos||[]).map(i=>({...i, camino:'Prospección'})),
-    ...(PLAN_GROW[key].bcg||[]).map(i=>({...i, camino:'BCG'})),
-    ...(PLAN_GROW[key].recuperacion||[]).map(i=>({...i, camino:'Recuperación'})),
+    ...PLAN_GROW[key].prospectos.map(i   => ({ nombre:i.val, industria:i.industria, ruta:i.ruta, camino:'Prospección' })),
+    ...PLAN_GROW[key].bcg.map(i          => ({ nombre:i.val, industria:i.industria, ruta:i.ruta, camino:'BCG' })),
+    ...PLAN_GROW[key].recuperacion.map(i => ({ nombre:i.val, industria:i.industria, ruta:i.ruta, camino:'Recuperación' })),
   ];
-  // Guardar via JSONP (resuelve CORS)
+
   const planData = encodeURIComponent(JSON.stringify({
     vendedor: vend,
     mes: new Date().toISOString().slice(0,7),
-    items, estatus:'Borrador'
+    items, estatus: 'Borrador'
   }));
   jsonpFetch(API_S2 + '?action=savePlanGrow&data=' + planData)
-    .then(r=>{ if(r.ok) console.log('✅ Plan GROW guardado en Sheet:', r.count); })
-    .catch(e=>console.warn('⚠️ Error guardando plan:', e));
+    .then(r => { if(r.ok) console.log('✅ Plan GROW guardado en Sheet:', r.count); })
+    .catch(e => console.warn('⚠️ Error guardando plan:', e));
 
   toast('✅ Plan guardado como borrador');
   initGrow();
