@@ -664,12 +664,7 @@ function getMetas(mes, usuario){
 }
 const METAS = METAS_POR_MES['2026-05'];
 
-const VENTA_ERP = {
-  'Ana Torres':  {venta:142000,rentabilidad:28000,nuevos:2,recuperados:2},
-  'Carlos Vega': {venta:98000, rentabilidad:17000,nuevos:1,recuperados:1},
-  'Sofía Ruiz':  {venta:188000,rentabilidad:40000,nuevos:4,recuperados:3},
-  'Miguel León': {venta:71000, rentabilidad:11000,nuevos:0,recuperados:1},
-};
+const VENTA_ERP = {};
 
 // Prospectos por vendedor
 let PROSPECTOS = [];
@@ -695,15 +690,7 @@ function calcAtencStatus(lead){
 const PLAN_GROW = {};
 
 // Acciones generadas en sesiones GROW (normalmente vendrían del Portal 2 vía Sheet)
-const ACCIONES_GROW = [
-  {id:'G001',vendedor:'Ana Torres',  camino:'Prospección',   accion:'Prospectar',  nombre:'Textiles Monterrey',    industria:'Manufactura',ruta:'Local', fecha:'2026-05-28',estatus:'Pendiente'},
-  {id:'G002',vendedor:'Ana Torres',  camino:'Cartera BCG',   accion:'Desarrollar', nombre:'CLT-0033',              industria:'Comercio',   ruta:'Local', fecha:'2026-05-30',estatus:'Pendiente'},
-  {id:'G003',vendedor:'Ana Torres',  camino:'Recuperación',  accion:'Recuperar',   nombre:'CLT-0018',              industria:'Comercio',   ruta:'Local', fecha:'2026-06-01',estatus:'Pendiente'},
-  {id:'G004',vendedor:'Carlos Vega', camino:'Prospección',   accion:'Prospectar',  nombre:'Constructora Los Pinos',industria:'Construcción',ruta:'—',  fecha:'2026-05-29',estatus:'Pendiente'},
-  {id:'G005',vendedor:'Sofía Ruiz',  camino:'Prospección',   accion:'Prospectar',  nombre:'Editorial Iberoamérica',industria:'Servicios',  ruta:'—',fecha:'2026-05-28',estatus:'Cerrado'},
-  {id:'G006',vendedor:'Sofía Ruiz',  camino:'Cartera BCG',   accion:'Desarrollar', nombre:'CLT-0027',              industria:'Comercio',   ruta:'—',fecha:'2026-05-30',estatus:'Pendiente'},
-  {id:'G007',vendedor:'Miguel León', camino:'Recuperación',  accion:'Recuperar',   nombre:'CLT-0055',              industria:'Comercio',   ruta:'—',fecha:'2026-06-02',estatus:'Pendiente'},
-];
+const ACCIONES_GROW = [];
 
 // Compromisos/Plan de trabajo
 let COMPROMISOS = [];
@@ -915,7 +902,7 @@ function syncCompromisoSheet(c) {
     creado_por: c.creado_por||'David'
   }));
   jsonpFetch(API_S2 + '?action=saveCompromiso&data=' + data)
-    .then(r => { if(r.ok) console.log('✅ Compromiso en Sheet:', r.id); })
+    .then(r => { if(r&&r.ok) console.log('✅ Compromiso en Sheet:', r.id||r.action); })
     .catch(e => console.warn('⚠️ Error sync compromiso:', e));
 }
 
@@ -1236,9 +1223,9 @@ function cambiarRol(){
   const mesActual = new Date().toISOString().slice(0,7);
   const compTotal = COMPROMISOS.filter(c => {
     if(vNombreComp && c.vendedor !== vNombreComp) return false;
-    return (c.fecha||'').startsWith(mesActual) || true; // demo: mostrar todos
+    return c.estatus !== 'Cancelado';
   });
-  const compCerrados = compTotal.filter(c=>c.completado||c.estatus==='Completado'||c.done);
+  const compCerrados = compTotal.filter(c=>c.completado||c.estatus==='Completado');
   const pctComp = compTotal.length>0 ? Math.round(compCerrados.length/compTotal.length*100) : 0;
   const colComp = pctComp>=80?'var(--green)':pctComp>=50?'var(--yellow)':'var(--red)';
 
@@ -2057,9 +2044,12 @@ function renderPlan(){
   });
 
   // ── Fuente 2: Compromisos del WBR ────────────────────────────────
-  const compsWBR = COMPROMISOS.filter(c=>esVend?c.vendedor===v:true);
-  const pendWBR  = compsWBR.filter(c=>!c.done).length;
-  const doneWBR  = compsWBR.filter(c=>c.done).length;
+  const compsWBR = COMPROMISOS.filter(c=>{
+    if(esVend && c.vendedor!==v) return false;
+    return c.estatus!=='Cancelado';
+  });
+  const pendWBR  = compsWBR.filter(c=>!c.completado && c.estatus!=='Completado').length;
+  const doneWBR  = compsWBR.filter(c=>c.completado  || c.estatus==='Completado').length;
 
   // ── Fuente 3: Acciones del GROW ──────────────────────────────────
   const accsGrow = getAccionesGROW();
@@ -2105,30 +2095,55 @@ function renderPlan(){
 
   } else if(planTabActual==='wbr'){
     if(!compsWBR.length){
-      document.getElementById('planContent').innerHTML='<div style="text-align:center;padding:40px;color:var(--muted)">Sin compromisos del WBR</div>';
+      document.getElementById('planContent').innerHTML='<div style="text-align:center;padding:40px;color:var(--muted)">Sin compromisos WBR — el coordinador los crea en Aprobaciones</div>';
       return;
     }
-    const grupos={'Alta':compsWBR.filter(c=>c.prioridad==='Alta'),'Media':compsWBR.filter(c=>c.prioridad==='Media'),'Baja':compsWBR.filter(c=>c.prioridad==='Baja')};
-    const colG={'Alta':'var(--red)','Media':'var(--yellow)','Baja':'var(--green)'};
-    document.getElementById('planContent').innerHTML = Object.entries(grupos).map(([prio,items])=>{
-      if(!items.length)return'';
-      return '<div style="margin-bottom:20px">'
-        +'<div style="font-size:11px;font-weight:700;color:'+colG[prio]+';text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">'+prio+' — '+items.length+'</div>'
-        +items.map(c=>'<div class="pend-item'+(c.done?' done':'')+'">'
-          +(()=>{const _cid=c.id;return '<div class="pend-check'+(c.done?' done':'')+`' onclick="marcarDone('${_cid}')">`+(c.done?'✓':'')+'</div>';})()
-          +'<div style="flex:1">'
-          +'<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:2px">'
-          +'<span style="font-size:12px;font-weight:700">'+c.tipo+'</span>'
-          +'<span style="font-size:12px;font-weight:600;color:var(--accent)">'+c.cliente+'</span>'
-          +(esVend?'':'<span style="font-size:11px;color:var(--muted)">· '+c.vendedor+'</span>')
-          +'<span style="font-size:10px;background:var(--green-light);color:var(--green);padding:2px 7px;border-radius:20px;font-weight:600">WBR</span>'
-          +'</div>'
-          +'<div style="font-size:12px;color:var(--text2)">'+c.desc+'</div>'
-          +'</div>'
-          +'<div style="font-size:11px;color:var(--muted);flex-shrink:0">'+fmtDate(c.fecha)+'</div>'
-          +'</div>').join('')
+    const pendientes  = compsWBR.filter(c=>!c.completado && c.estatus!=='Completado' && c.estatus!=='Validado');
+    const validados   = compsWBR.filter(c=>c.estatus==='Validado' && !c.completado);
+    const completados = compsWBR.filter(c=>c.completado || c.estatus==='Completado');
+
+    const renderCompItems = (items, showDone) => items.map(c=>{
+      const done = c.completado || c.estatus==='Completado';
+      const badge = '<span style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;background:'
+        +(c.estatus==='Validado'?'#d1fae5;color:#065f46'
+          :c.estatus==='Borrador'?'rgba(245,166,35,.15);color:#92400e'
+          :c.estatus==='Completado'?'#d1fae5;color:#065f46'
+          :'rgba(37,99,235,.1);color:#1d4ed8')
+        +'">'+(c.estatus||'Pendiente')+'</span>';
+      const btn = done
+        ? '<span style="color:var(--green);font-size:11px">✅ Completado</span>'
+        : '<button class="btn btn-g btn-sm" onclick="marcarDone(\'+c.id+\')">✓ Listo</button>';
+      return '<div class="act-row" style="'+(done?'opacity:.6':'')+'">'
+        +'<div class="ar-dot" style="background:'+(done?'var(--green)':c.estatus==='Validado'?'var(--green)':'var(--gold)')+'"></div>'
+        +'<div class="ar-body">'
+        +'<div class="ar-header">'
+        +'<span class="ar-prospecto">'+(c.industria||'WBR')+'</span>'
+        +badge
+        +(esVend?'':'<span style="font-size:11px;color:var(--muted)">'+c.vendedor+'</span>')
+        +'</div>'
+        +'<div style="font-size:12px;color:var(--text2);margin-top:2px">'+(c.descripcion||c.desc||'')+'</div>'
+        +'</div>'
+        +'<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">'
+        +'<div style="font-size:11px;color:var(--muted)">'+(c.mes||fmtDate(c.fecha))+'</div>'
+        +btn
+        +'</div>'
         +'</div>';
     }).join('');
+
+    let html = '';
+    if(validados.length){
+      html += '<div style="margin-bottom:16px"><div style="font-size:11px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">✅ Validados — por ejecutar ('+validados.length+')</div>'
+        +renderCompItems(validados)+'</div>';
+    }
+    if(pendientes.length){
+      html += '<div style="margin-bottom:16px"><div style="font-size:11px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">⏳ Pendientes de validación ('+pendientes.length+')</div>'
+        +renderCompItems(pendientes)+'</div>';
+    }
+    if(completados.length){
+      html += '<div style="margin-bottom:16px"><div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">✓ Completados ('+completados.length+')</div>'
+        +renderCompItems(completados)+'</div>';
+    }
+    document.getElementById('planContent').innerHTML = html || '<div style="text-align:center;padding:40px;color:var(--muted)">Sin compromisos</div>';
 
   } else if(planTabActual==='grow'){
     if(!accsGrow.length){
@@ -2925,6 +2940,48 @@ function renderAprobaciones(){
   }
 
   html += '</div>';
+
+  // ── Sección COMPROMISOS ─────────────────────────────────────
+  const compsPend = COMPROMISOS.filter(c => c.estatus !== 'Cancelado' && !c.completado);
+  if(compsPend.length) {
+    html += '<div class="card" style="margin-top:16px">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">'
+      +'<div class="card-title" style="margin:0">📌 Compromisos del equipo</div>'
+      +'<button class="btn btn-p btn-sm" onclick="abrirNuevoCompromiso()">+ Nuevo compromiso</button>'
+      +'</div>'
+      +'<div style="overflow-x:auto"><table><thead><tr>'
+      +'<th>Vendedor/a</th><th>Industria</th><th>Mes</th><th>Descripción</th><th>Estatus</th><th></th>'
+      +'</tr></thead><tbody>'
+      +compsPend.map(c =>
+        '<tr>'
+        +'<td style="font-size:12px;font-weight:600">'+c.vendedor+'</td>'
+        +'<td style="font-size:12px">'+(c.industria||'—')+'</td>'
+        +'<td style="font-size:12px">'+(c.mes||'—')+'</td>'
+        +'<td style="font-size:12px">'+(c.descripcion||'').substring(0,60)+'</td>'
+        +'<td><span style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;background:'
+          +(c.estatus==='Validado'?'#d1fae5;color:#065f46'
+            :c.estatus==='Borrador'?'rgba(245,166,35,.15);color:#92400e'
+            :'rgba(37,99,235,.1);color:#1d4ed8')
+          +'">'+(c.estatus||'Pendiente')+'</span></td>'
+        +'<td style="display:flex;gap:4px">'
+          +(c.estatus!=='Validado'
+            ?'<button class="btn btn-p btn-sm" onclick="aprobarCompromiso(\'+c.id+\')">✅ Validar</button>'
+            :'<span style="color:var(--green);font-size:11px;font-weight:600">✅ Validado</span>')
+          +'<button class="btn btn-g btn-sm" onclick="editarCompromiso(\'+c.id+\')">✏️</button>'
+          +'<button class="btn btn-r btn-sm" onclick="cancelarCompromiso(\'+c.id+\')">✕</button>'
+        +'</td>'
+        +'</tr>'
+      ).join('')
+      +'</tbody></table></div></div>';
+  } else {
+    html += '<div class="card" style="margin-top:16px">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between">'
+      +'<div class="card-title" style="margin:0">📌 Compromisos del equipo</div>'
+      +'<button class="btn btn-p btn-sm" onclick="abrirNuevoCompromiso()">+ Nuevo compromiso</button>'
+      +'</div>'
+      +'<div style="text-align:center;padding:20px;color:var(--muted);font-size:13px">Sin compromisos pendientes 🎉</div>'
+      +'</div>';
+  }
 
   document.getElementById('aprobacionesContent').innerHTML = html ||
     '<div style="text-align:center;padding:40px;color:var(--muted)">Sin pendientes</div>';
