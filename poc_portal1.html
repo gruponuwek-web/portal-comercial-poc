@@ -2596,7 +2596,7 @@ function renderGrowForm(vendNombre, plan){
     +'</div>'
     +'<div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end">'
     +'<button class="btn btn-g" onclick="growModoEdicion=false;renderGrowPage()">Cancelar</button>'
-    +(()=>{return '<button class="btn btn-p" onclick="guardarCompromiso()">💾 Guardar como borrador</button>';})()+
+    +(()=>{return '<button class="btn btn-p" onclick="guardarPlanGrow(\''+vendNombre+'\')">💾 Guardar como borrador</button>';})()+
     '</div></div>';
 }
 
