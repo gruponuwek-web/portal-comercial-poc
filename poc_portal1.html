@@ -3648,68 +3648,6 @@ function renderHistoricoCompromisos() {
     return html;
   }).join('');
 }
-      const tipoBadge = '<span style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;background:'
-        +(c.tipo==='BCG'?'rgba(14,122,92,.1);color:#065f46'
-          :c.tipo==='Recuperación'?'rgba(192,57,43,.1);color:#c0392b'
-          :c.tipo==='Prospección'?'rgba(37,99,235,.1);color:#1d4ed8'
-          :'rgba(108,117,125,.1);color:#6c757d')
-        +'">'+(c.tipo||'General')+'</span>';
-      const estatusBadge = '<span style="font-size:10px;font-weight:600;padding:2px 6px;border-radius:4px;background:'
-        +(done?'#d1fae5;color:#065f46':c.estatus==='Validado'?'rgba(37,99,235,.1);color:#1d4ed8':'rgba(245,166,35,.15);color:#92400e')
-        +'">'+(done?'✓ Cumplido':c.estatus||'Borrador')+'</span>';
-      return '<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);'+(done?'opacity:.7':'')+'last:border-none">'
-        +'<div style="width:18px;height:18px;border-radius:50%;background:'+(done?'var(--green)':c.estatus==='Validado'?'var(--blue)':'var(--gold)')+';flex-shrink:0;margin-top:2px"></div>'
-        +'<div style="flex:1">'
-        +'<div style="font-size:12px;font-weight:500;color:var(--text)">'+(c.descripcion||'')+'</div>'
-        +'<div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap">'+tipoBadge+estatusBadge+'</div>'
-        +(c.nota_cierre?'<div style="font-size:11px;color:var(--muted);margin-top:3px;font-style:italic">"'+c.nota_cierre+'"</div>':'')
-        +'</div>'
-        +'<div style="font-size:11px;color:var(--muted);white-space:nowrap">'+(c.fecha_cumplido||c.fecha||'')+'</div>'
-        +'</div>';
-    };
-
-    let bodyHtml = '';
-    if(!esVendH) {
-      // Coordinador: acordeón por vendedor dentro del mes
-      bodyHtml = vendedores.map(vend => {
-        const vItems = porVend[vend];
-        const vCump = vItems.filter(c=>c.completado||c.estatus==='Cumplido').length;
-        return '<div style="margin-bottom:8px">'
-          +'<div style="font-size:11px;font-weight:700;color:var(--navy);padding:6px 8px;background:var(--surface2);border-radius:6px;display:flex;justify-content:space-between">'
-          +'<span>'+vend+'</span>'
-          +'<span style="color:var(--muted)">'+vCump+'/'+vItems.length+'</span>'
-          +'</div>'
-          +'<div style="padding:0 8px">'
-          +vItems.map(renderItemComp).join('')
-          +'</div>'
-          +'</div>';
-      }).join('');
-    } else {
-      bodyHtml = items.map(renderItemComp).join('');
-    }
-
-    return '<div style="border:1px solid var(--border);border-radius:10px;margin-bottom:10px;overflow:hidden">'
-      // Header del mes — clickeable
-      +'<div onclick="toggleMesComp(this)" style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;cursor:pointer;background:var(--surface2)">'
-      +'<div style="display:flex;align-items:center;gap:12px">'
-      +'<span style="font-family:Syne,sans-serif;font-size:14px;font-weight:700;color:var(--navy)">'+mes+'</span>'
-      +'<span style="font-size:11px;color:var(--muted)">'+items.length+' compromisos</span>'
-      +'</div>'
-      +'<div style="display:flex;align-items:center;gap:10px">'
-      +'<span style="font-size:13px;font-weight:800;color:'+colM+'">'+cumplidos+'/'+items.length+'</span>'
-      +'<div style="width:80px;height:6px;background:var(--border);border-radius:3px;overflow:hidden">'
-      +'<div style="width:'+pct+'%;height:100%;background:'+colM+'"></div>'
-      +'</div>'
-      +'<span style="font-size:11px;color:var(--toggle);transition:.2s">'+(isOpen?'▲':'▼')+'</span>'
-      +'</div>'
-      +'</div>'
-      // Cuerpo — abierto/cerrado
-      +'<div class="mes-comp-body" style="padding:'+(isOpen?'12px 16px':'0 16px')+';display:'+(isOpen?'block':'none')+';">'
-      +bodyHtml
-      +'</div>'
-      +'</div>';
-  }).join('');
-}
 
 function toggleMesComp(header) {
   const body = header.nextElementSibling;
