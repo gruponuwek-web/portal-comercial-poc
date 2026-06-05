@@ -2816,11 +2816,28 @@ function abrirNuevoCompromiso(vendedor){
 function editarCompromiso(id){
   if(!puedeEditarCompromiso()){ toast('Solo el coordinador puede editar compromisos','err'); return; }
   const c = COMPROMISOS.find(x=>x.id===id); if(!c) return;
+
+  // Asegurar que el modal existe
   abrirNuevoCompromiso(c.vendedor);
-  document.getElementById('compId').value = id;
-  document.getElementById('compDesc').value = c.descripcion;
-  document.getElementById('compMes').value = c.mes||'';
-  document.getElementById('compTit').textContent = 'Editar compromiso';
+
+  // Poblar DESPUÉS de que el modal existe — con timeout para garantizar el DOM
+  setTimeout(() => {
+    const elId   = document.getElementById('compId');
+    const elDesc = document.getElementById('compDesc');
+    const elMes  = document.getElementById('compMes');
+    const elTit  = document.getElementById('compTit');
+    const elTipo = document.getElementById('compTipo');
+    const elVend = document.getElementById('compVend');
+
+    if(elId)   elId.value   = id;
+    if(elDesc) elDesc.value = c.descripcion || '';
+    if(elMes)  elMes.value  = c.mes || '';
+    if(elTipo) elTipo.value = c.tipo || 'General';
+    if(elVend) elVend.value = c.vendedor || '';
+    if(elTit)  elTit.textContent = 'Editar — ' + (c.vendedor||'');
+
+    console.log('✅ Modal compromiso cargado con ID:', id);
+  }, 50);
 }
 
 function guardarCompromiso(){
