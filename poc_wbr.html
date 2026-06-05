@@ -258,15 +258,8 @@ tr:hover td{background:#fafbfc;}
         <div class="form-group" style="margin:0"><label>Fecha</label><input type="date" id="sesionFecha" onchange="autoSesion()"></div>
         <div class="form-group" style="margin:0"><label>Semana</label><input id="sesionSemana" readonly style="background:var(--surface2);color:var(--text2)"></div>
       </div>
-      <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px">Tipo de sesión</div>
-      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
-        <div class="week-btn" id="wbtn4" onclick="selTipo(4)"><span class="wt-icon">🚀</span><strong>Semana 1</strong><span class="wt-sub">GROW + Plan</span></div>
-        <div class="week-btn" id="wbtn1" onclick="selTipo(1)"><span class="wt-icon">📈</span><strong>Semana 2</strong><span class="wt-sub">Prospección</span></div>
-        <div class="week-btn" id="wbtn2" onclick="selTipo(2)"><span class="wt-icon">📊</span><strong>Semana 3</strong><span class="wt-sub">Cartera BCG</span></div>
-        <div class="week-btn" id="wbtn3" onclick="selTipo(3)"><span class="wt-icon">🔄</span><strong>Semana 4</strong><span class="wt-sub">Recuperación</span></div>
-      </div>
-      <div id="tipoInfo" style="display:none;padding:10px 14px;background:var(--accent-light);border:1px solid #bfdbfe;border-radius:8px;font-size:13px;color:#1e40af;margin-bottom:14px"></div>
-      <button class="btn btn-p" id="btnCrear" onclick="crearSesion()" disabled>Crear Sesión →</button>
+      <div id="wbrSyncIndicator" style="display:none;font-size:12px;color:var(--gold);font-weight:600;padding:8px 12px;background:rgba(245,166,35,.1);border-radius:8px;margin-bottom:10px;text-align:center">⟳ Cargando datos del equipo...</div>
+      <button class="btn btn-p" id="btnCrear" onclick="crearSesion()">Iniciar sesión WBR →</button>
     </div>
 
     <!-- PASO 2 -->
@@ -401,10 +394,13 @@ tr:hover td{background:#fafbfc;}
 //  DATOS DEMO
 // ══════════════════════════════════════════════
 const EQUIPO = [
-  {nombre:'Ana Torres',   rol:'Vendedora', zona:'Norte'},
-  {nombre:'Carlos Vega',  rol:'Vendedor',  zona:'Sur'},
-  {nombre:'Sofía Ruiz',   rol:'Vendedora', zona:'Centro'},
-  {nombre:'Miguel León',  rol:'Vendedor',  zona:'Oriente'},
+  {nombre:'Lic. Elizabeth Díaz', rol:'Gerencia Comercial'},
+  {nombre:'Amairani',            rol:'Vendedora'},
+  {nombre:'Adriana',             rol:'Vendedora'},
+  {nombre:'Itzel Hernández',     rol:'Vendedora'},
+  {nombre:'Edwin',               rol:'Vendedor'},
+  {nombre:'Veronica',            rol:'Vendedora'},
+  {nombre:'Vacante',             rol:'Vendedor'},
 ];
 
 // KPIs por tipo de sesión — datos desde Portal 1 / Google Sheets
@@ -462,22 +458,60 @@ const VENTA_ERP = {
 const MKT_DATA = {semana:'2025-S20',leads_gen:45,atendidos:38,no_cal:12,asignados:26,
   desglose:{'Ana Torres':8,'Carlos Vega':6,'Sofía Ruiz':8,'Miguel León':4}};
 
-const SESIONES_HIST = [
-  {id:'2026-S19-GROW', fecha:'2026-05-11',semana:'S19',tipo:'GROW + Plan',    pcts:{Ana:90,Carlos:85,Sofia:95,Miguel:75}},
-  {id:'2026-S20-PROSP',fecha:'2026-05-18',semana:'S20',tipo:'Prospección',    pcts:{Ana:42,Carlos:33,Sofia:44,Miguel:25}},
-  {id:'2026-S21-BCG',  fecha:'2026-05-25',semana:'S21',tipo:'Cartera BCG',    pcts:{Ana:78,Carlos:60,Sofia:88,Miguel:48}},
-  {id:'2026-S18-RECUP',fecha:'2026-05-04',semana:'S18',tipo:'Recuperación',   pcts:{Ana:88,Carlos:72,Sofia:95,Miguel:55}},
-];
+// ══════════════════════════════════════════
+//  APIs GOOGLE SHEETS
+// ══════════════════════════════════════════
+const API_S1 = 'https://script.google.com/macros/s/AKfycbzkApyJsLCSq6ohALLSg6AUiGSznKAP6fDRUh8FCx8d-1r3VMrK26FMZGMjZx7rbf19/exec';
+const API_S2 = 'https://script.google.com/macros/s/AKfycbyR7WyYY2ZAmXg4Gwucgh5xuhNV13fYnXkA1LbXL6uSnZ-hz-7HTQ373nT6SyK6MWofTA/exec';
 
-const ACCIONES = [
-  {id:'ACC001',sesion:'2026-S20-PROSP',vendedor:'Ana Torres', camino:'Prospección',  prioridad:'Alta', accion:'Visita prospecto',     cod:'CLT-0042',nombre:'Aceros del Norte',   industria:'Manufactura', zona:'Norte',  fecha:'2026-05-28',estatus:'Pendiente',  seguimientos:[],origen:'WBR'},
-  {id:'ACC002',sesion:'2026-S18-RECUP',vendedor:'Sofía Ruiz', camino:'Recuperación', prioridad:'Alta', accion:'Llamada reactivación', cod:'CLT-0018',nombre:'Papelería Zenteno', industria:'Comercio',    zona:'Centro', fecha:'2026-05-27',estatus:'En Proceso', seguimientos:[{fecha:'2026-05-27',notas:'Contestó, quiere retomar',estatus:'En Proceso'}],origen:'WBR'},
-  {id:'ACC003',sesion:'2026-S20-PROSP',vendedor:'Carlos Vega',camino:'Cartera BCG',  prioridad:'Media',accion:'Cotización ampliada',  cod:'CLT-0091',nombre:'Constructora Reyes',industria:'Construcción',zona:'Sur',   fecha:'2026-05-29',estatus:'Cerrado',    seguimientos:[{fecha:'2026-05-28',notas:'Aceptada',estatus:'Cerrado'}],origen:'WBR'},
-  {id:'ACC004',sesion:'2026-S18-RECUP',vendedor:'Miguel León',camino:'Recuperación', prioridad:'Alta', accion:'Email + llamada',      cod:'CLT-0055',nombre:'Distribuidora Alfa', industria:'Comercio',   zona:'Oriente',fecha:'2026-05-30',estatus:'Pendiente',  seguimientos:[],origen:'WBR'},
-  {id:'ACC005',sesion:'2026-S20-PROSP',vendedor:'Ana Torres', camino:'Prospección',  prioridad:'Media',accion:'Ruta zona industrial', cod:'CLT-0063',nombre:'Nuevo prospecto',   industria:'Manufactura', zona:'Norte',  fecha:'2026-06-02',estatus:'Pendiente',  seguimientos:[],origen:'WBR'},
-  {id:'ACC006',sesion:'2026-S21-BCG',  vendedor:'Sofía Ruiz', camino:'Cartera BCG',  prioridad:'Alta', accion:'Presentar catálogo nuevo',cod:'CLT-0027',nombre:'Papelería Morelos',industria:'Comercio',  zona:'Centro', fecha:'2026-05-28',estatus:'Pendiente',  seguimientos:[],origen:'WBR'},
-  {id:'ACC007',sesion:'2026-S21-BCG',  vendedor:'Carlos Vega',camino:'Cartera BCG',  prioridad:'Media',accion:'Seguimiento pedido',   cod:'CLT-0034',nombre:'Imprenta Norteña',  industria:'Servicios',  zona:'Norte',  fecha:'2026-06-03',estatus:'Pendiente',  seguimientos:[],origen:'WBR'},
-];
+// JSONP — resuelve CORS con Apps Script
+function jsonpFetch(url) {
+  return new Promise((resolve, reject) => {
+    const cb = 'cb_' + Math.random().toString(36).slice(2);
+    const s  = document.createElement('script');
+    window[cb] = (data) => { delete window[cb]; document.body.removeChild(s); resolve(data); };
+    s.onerror = () => reject(new Error('JSONP error'));
+    s.src = url + '&callback=' + cb;
+    document.body.appendChild(s);
+  });
+}
+
+// Cache de datos del Sheet
+let _pipeline    = [];
+let _compromisos = [];
+let _leads       = [];
+
+async function cargarDatosWBR(vendedor) {
+  const syncEl = document.getElementById('wbrSyncIndicator');
+  if(syncEl) syncEl.style.display = 'block';
+  try {
+    const mes = new Date().toISOString().slice(0,7);
+    const [pipe, comps] = await Promise.all([
+      jsonpFetch(API_S2 + '?action=getPipeline&vendedor=' + encodeURIComponent(vendedor)),
+      jsonpFetch(API_S2 + '?action=getCompromisos&vendedor=' + encodeURIComponent(vendedor) + '&mes=' + mes),
+    ]);
+    _pipeline    = pipe  || [];
+    _compromisos = comps || [];
+    console.log('✅ WBR datos cargados — pipeline:', _pipeline.length, 'compromisos:', _compromisos.length);
+  } catch(e) {
+    console.warn('⚠️ Error cargando datos WBR:', e);
+  }
+  if(syncEl) syncEl.style.display = 'none';
+}
+
+async function updateCompromiso(data) {
+  const encoded = encodeURIComponent(JSON.stringify(data));
+  return jsonpFetch(API_S2 + '?action=updateCompromiso&data=' + encoded);
+}
+
+async function saveCompromiso(data) {
+  const encoded = encodeURIComponent(JSON.stringify(data));
+  return jsonpFetch(API_S2 + '?action=saveCompromiso&data=' + encoded);
+}
+
+const SESIONES_HIST = [];
+
+const ACCIONES = [];
 
 let selectedTipo = null;
 let sesionActiva = null;
@@ -579,25 +613,17 @@ const TIPO_INFO={
 
 function calcFolio(f){
   const anio=new Date(f+'T12:00:00').getFullYear();
-  const sa=getSemAnio(f),sm=getSemMes(f);
-  const tNum=((sm-1)%4)+1;
-  return{folio:anio+'-S'+String(sa).padStart(2,'0')+'-'+TIPO_MAP[tNum],semAnio:'Semana '+sa,semMes:sm,tipoNum:tNum,tipoLabel:TIPO_LABEL[tNum]};
-}
+  const sa=getSemAnio(f);
+  return{folio:anio+'-S'+String(sa).padStart(2,'0'),semAnio:'Semana '+sa};
+};
 
 function autoSesion(){
-  const f=document.getElementById('sesionFecha').value;if(!f)return;
-  const r=calcFolio(f);
-  document.getElementById('sesionId').value=r.folio;
-  document.getElementById('sesionSemana').value=r.semAnio;
-  selTipo(r.tipoNum);
-  const info=document.getElementById('tipoInfo');
-  info.style.display='block';
-  info.innerHTML='<strong>Sugerido:</strong> '+r.tipoLabel+' (sem '+r.semMes+' del mes) — puedes cambiarlo si necesitas.<br>'+TIPO_INFO[r.tipoNum];
+  const hoy = new Date().toISOString().split('T')[0];
+  const fd = calcFolio(document.getElementById('sesionFecha')?.value||hoy);
+  if(document.getElementById('sesionSemana'))
+    document.getElementById('sesionSemana').value = fd.semAnio;
 }
 
-// ══════════════════════════════════════════════
-//  DASHBOARD
-// ══════════════════════════════════════════════
 function renderDash(){
   // Stats globales
   const abiertas=ACCIONES.filter(a=>a.estatus!=='Cerrado').length;
@@ -635,7 +661,7 @@ function renderDash(){
         +'<td><div style="font-size:12px;font-weight:600">'+a.cod+'</div><div style="font-size:11px;color:var(--muted)">'+a.nombre+'</div></td>'
         +'<td style="font-size:12px">'+fmtDate(a.fecha)+'</td>'
         +'<td>'+badgeEst(a.estatus)+'</td>'
-        +'<td><button class="btn btn-g btn-sm" onclick="openSegModal(\''+a.id+'\')">+ Seg.</button></td></tr>').join('')
+    +'<td><button class="btn btn-g btn-sm" onclick="openSegModal(\''+a.id+'\')">+ Seg.</button></td></tr>').join('')
       +'</tbody></table></div>'
     :'<div style="text-align:center;padding:30px;color:var(--muted)">Sin compromisos abiertos 🎉</div>';
 }
@@ -646,11 +672,9 @@ function renderDash(){
 function initSesion(){
   const hoy=new Date().toISOString().split('T')[0];
   const fd=calcFolio(hoy);
-  document.getElementById('sesionId').value=fd.folio;
-  document.getElementById('sesionFecha').value=hoy;
-  document.getElementById('sesionSemana').value=fd.semAnio;
-  selTipo(fd.tipoNum);
-  document.getElementById('paso2').style.display='none';
+  if(document.getElementById('sesionId'))   document.getElementById('sesionId').value=fd.folio;
+  if(document.getElementById('sesionFecha')) document.getElementById('sesionFecha').value=hoy;
+  if(document.getElementById('sesionSemana')) document.getElementById('sesionSemana').value=fd.semAnio;
 }
 
 function selTipo(num){
@@ -678,32 +702,55 @@ function selTipo(num){
 }
 
 function crearSesion(){
-  const id=document.getElementById('sesionId').value;
-  const fecha=document.getElementById('sesionFecha').value;
-  const semana=document.getElementById('sesionSemana').value;
-  if(!selectedTipo){toast('Selecciona el tipo de sesión','err');return;}
-  sesionActiva={id,fecha,semana,tipo:selectedTipo};
-  const tLabel=TIPO_LABEL[selectedTipo];
-  SESIONES_HIST.unshift({id,fecha,semana,tipo:tLabel,pcts:{},nueva:true});
-  document.getElementById('sesionInfo').textContent=id+' · '+semana+' · '+fmtDate(fecha)+' · '+tLabel;
-  document.getElementById('paso2title').textContent='Analizar equipo — '+tLabel;
-  document.getElementById('paso2').style.display='block';
-  // Colapsar paso 1
-  document.getElementById('paso1box').innerHTML=
-    '<div style="display:flex;align-items:center;gap:10px">'
-    +'<div class="step-num done">1</div>'
-    +'<div><div style="font-family:\'Syne\',sans-serif;font-size:15px;font-weight:700">Sesión creada</div>'
-    +'<div style="font-size:12px;color:var(--muted)">'+id+' · '+semana+' · '+fmtDate(fecha)+' · '+tLabel+'</div></div></div>';
-  // Calcular semana anterior para cargar datos
-  const d=new Date(fecha+'T12:00:00');
-  d.setDate(d.getDate()-7);
-  const prevKey=d.getFullYear()+'-S'+String(getSemAnio(d.toISOString().split('T')[0])).padStart(2,'0');
-  renderMktBloque(prevKey);
-  renderWBRVendedores(selectedTipo, prevKey);
-  toast('Sesión '+id+' creada');
-}
+  const fecha  = document.getElementById('sesionFecha')?.value  || new Date().toISOString().slice(0,10);
+  const semana = document.getElementById('sesionSemana')?.value || getSemAnio(fecha);
 
-// BLOQUE MARKETING
+  const syncEl = document.getElementById('wbrSyncIndicator');
+  if(syncEl) syncEl.style.display = 'block';
+  document.getElementById('btnCrear').disabled = true;
+
+  // Cargar datos de TODO el equipo en paralelo
+  const mes = new Date().toISOString().slice(0,7);
+  const calls = EQUIPO.map(v =>
+    Promise.all([
+      jsonpFetch(API_S2 + '?action=getPipeline&vendedor='    + encodeURIComponent(v.nombre)),
+      jsonpFetch(API_S2 + '?action=getCompromisos&vendedor=' + encodeURIComponent(v.nombre) + '&mes=' + mes),
+    ]).then(([pipe, comps]) => {
+      v._pipeline    = pipe  || [];
+      v._compromisos = comps || [];
+    }).catch(() => {
+      v._pipeline    = [];
+      v._compromisos = [];
+    })
+  );
+
+  Promise.all(calls).then(() => {
+    if(syncEl) syncEl.style.display = 'none';
+    document.getElementById('btnCrear').disabled = false;
+
+    // Mostrar paso 2
+    const paso1 = document.getElementById('paso1');
+    const paso2 = document.getElementById('paso2');
+    if(paso1) paso1.style.display = 'none';
+    if(paso2) paso2.style.display = 'block';
+
+    const tit = document.getElementById('paso2title');
+    if(tit) tit.textContent = semana;
+    const info = document.getElementById('sesionInfo');
+    if(info) info.textContent = fecha;
+
+    // Renderizar TODO el equipo
+    document.getElementById('wbrVendedores').innerHTML =
+      EQUIPO.map(v => vendedorBloqueHTML(v)).join('');
+
+    console.log('✅ Sesión WBR iniciada — equipo completo');
+    toast('✅ Sesión WBR iniciada');
+  }).catch(e => {
+    if(syncEl) syncEl.style.display = 'none';
+    document.getElementById('btnCrear').disabled = false;
+    toast('⚠️ Error cargando datos','err');
+  });
+}
 function renderMktBloque(semKey){
   const mkt=MKT_DATA;
   const ok=mkt&&mkt.semana===semKey;
@@ -823,61 +870,127 @@ function accionCardHTML(idx, camino){
     +'</div>';
 }
 
-function vendedorBloqueHTML(v, tipo){
+function vendedorBloqueHTML(v) {
   const vid = v.nombre.replace(/\s+/g,'_');
-  const tbKpi = tipo===1?TB.prosp:tipo===2?TB.bcg:TB.recup;
-  const caminos={1:'Prospección',2:'Cartera BCG',3:'Recuperación'};
-  const camino = caminos[tipo]||'Prospección';
-  const motOpts = ['Enfermedad','Viaje de trabajo','Vacaciones','Emergencia','Otro'].map(m=>'<option>'+m+'</option>').join('');
+  const comps = (v._compromisos || []);
+  const pipe  = (v._pipeline    || []);
 
-  return '<div class="vsec" id="vsec_'+vid+'">'
-    +'<div class="vhdr" onclick="toggleV(\''+vid+'\')">'
-    +'<div style="display:flex;align-items:center;gap:10px">'
+  // ── Sección 1: Pipeline (solo lectura) ──────────────────────────
+  const enCot    = pipe.filter(p => p.etapa==='Cotización').length;
+  const ganados  = pipe.filter(p => p.etapa==='Ganado');
+  const montoGan = ganados.reduce((s,p) => s+(parseFloat(p.monto_cerr)||0), 0);
+  const nuevos   = ganados.filter(p => {
+    const f = p.fecha||'';
+    return f.startsWith(new Date().toISOString().slice(0,7));
+  });
+
+  // ── Sección 2: Compromisos por tipo ──────────────────────────────
+  const porTipo = {
+    'Prospección':  comps.filter(c=>c.tipo==='Prospección'),
+    'BCG':          comps.filter(c=>c.tipo==='BCG'),
+    'Recuperación': comps.filter(c=>c.tipo==='Recuperación'),
+    'General':      comps.filter(c=>!c.tipo||c.tipo==='General'),
+  };
+  const colTipo = {'Prospección':'#1d4ed8','BCG':'#065f46','Recuperación':'#c0392b','General':'#6c757d'};
+  const bgTipo  = {'Prospección':'rgba(37,99,235,.08)','BCG':'rgba(14,122,92,.08)','Recuperación':'rgba(192,57,43,.08)','General':'rgba(108,117,125,.08)'};
+
+  const renderCompItem = (c) => {
+    const done = c.completado || c.estatus==='Cumplido';
+    const tachado = c.estatus==='No cumplido';
+    return '<div class="wbr-comp-item" id="wci_'+c.id+'" style="display:flex;align-items:flex-start;gap:10px;padding:8px 12px;border-radius:8px;margin-bottom:6px;background:'+(done?'#f0fdf4':tachado?'#fff1f2':'var(--white)')+';border:1px solid '+(done?'#bbf7d0':tachado?'#fecdd3':'var(--border)')+';">'
+      +'<div style="flex:1">'
+      +'<div style="font-size:13px;font-weight:500;'+(tachado?'text-decoration:line-through;color:var(--muted)':'color:var(--text)')+'">'+c.descripcion+'</div>'
+      +'<div style="font-size:11px;color:var(--muted);margin-top:2px">'+c.mes+(c.nota_cierre?'  · "'+c.nota_cierre+'"':'')+'</div>'
+      +'</div>'
+      +'<div style="display:flex;gap:6px;flex-shrink:0">'
+      +(done
+        ? '<span style="color:var(--green);font-size:13px;font-weight:700">✅ Cumplido</span>'
+        : tachado
+          ? '<span style="color:var(--red);font-size:13px;font-weight:700">✗ No cumplido</span>'
+          : '<button class="btn btn-sm" style="background:#d1fae5;color:#065f46;border:none" onclick="palomearComp(\'+c.id+\',\'+vid+\')">✅</button>'
+           +'<button class="btn btn-sm" style="background:#fee2e2;color:#c0392b;border:none" onclick="tacharComp(\'+c.id+\',\'+vid+\')">✗</button>'
+           +'<button class="btn btn-sm" style="background:var(--surface2);color:var(--muted);border:1px solid var(--border);font-size:10px" onclick="openSegModal(\''+c.id+'\')">+ Seg.</button>'
+      )
+      +'</div>'
+      +'</div>';
+  };
+
+  const seccionTipo = (tipo, items) => {
+    if(!items.length && tipo==='General') return '';
+    const cumplidos = items.filter(c=>c.completado||c.estatus==='Cumplido').length;
+    return '<div style="margin-bottom:14px">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">'
+      +'<span style="font-size:11px;font-weight:700;color:'+colTipo[tipo]+';text-transform:uppercase;letter-spacing:.8px">'+tipo+'</span>'
+      +'<div style="display:flex;align-items:center;gap:8px">'
+      +'<span style="font-size:12px;font-weight:600;color:'+colTipo[tipo]+'">'+cumplidos+'/'+items.length+'</span>'
+      +'<button class="btn btn-sm" style="background:'+bgTipo[tipo]+';color:'+colTipo[tipo]+';border:none;font-size:11px" onclick="agregarExtraComp(\''+vid+'\',\''+tipo+'\')">+ Extra cumplido</button>'
+      +'</div>'
+      +'</div>'
+      +(items.length ? items.map(renderCompItem).join('') : '<div style="font-size:12px;color:var(--muted);padding:8px;text-align:center">Sin compromisos de '+tipo+' este mes</div>')
+      +'</div>';
+  };
+
+  const totalComp = comps.length;
+  const cumplTotal = comps.filter(c=>c.completado||c.estatus==='Cumplido').length;
+  const pctComp = totalComp>0?Math.round(cumplTotal/totalComp*100):0;
+  const colPct = pctComp>=80?'var(--green)':pctComp>=50?'var(--yellow)':'var(--red)';
+
+  return '<div class="vsec" id="vsec_'+vid+'" style="border:1px solid var(--border);border-radius:12px;margin-bottom:16px;overflow:hidden">'
+
+    // ── HEADER vendedora ─────────────────────────────────────────
+    +'<div class="vhdr" onclick="toggleV(\''+vid+'\')" style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;cursor:pointer;background:var(--surface2)">'
+    +'<div style="display:flex;align-items:center;gap:12px">'
     +'<div class="avatar">'+initials(v.nombre)+'</div>'
-    +'<div><div style="font-weight:600;font-size:14px">'+v.nombre+'</div>'
-    +'<div style="font-size:11px;color:var(--muted)">'+v.rol+' · Zona '+v.zona+'</div></div></div>'
-    +'<div style="display:flex;align-items:center;gap:6px" onclick="event.stopPropagation()">'
-    +'<span id="done_'+vid+'" style="display:none;font-size:11px;color:var(--green);font-weight:700">✓ Guardado</span>'
-    +'<select id="aus_sel_'+vid+'" style="padding:3px 6px;font-size:11px;border:1px solid var(--border2);border-radius:6px;height:26px">'+motOpts+'</select>'
-    +'<button onclick="marcarAusente(\''+vid+'\',\''+v.nombre+'\',event)" style="padding:3px 10px;font-size:11px;border:1px solid var(--yellow);border-radius:6px;background:var(--yellow-light);color:var(--yellow);cursor:pointer;height:26px">⚠️ Ausente</button>'
-    +'<span id="varrow_'+vid+'" style="color:var(--muted);font-size:12px;margin-left:4px">▾ Abrir</span>'
-    +'</div></div>'
-    +'<div class="vbody" id="vbody_'+vid+'">'
-    +'<div class="step-pills">'
-    +'<div class="spill active" id="sp_dat_'+vid+'" onclick="switchVStep(\''+vid+'\',\'dat\')">1. Datos</div>'
-    +'<div class="spill" id="sp_desc_'+vid+'" onclick="switchVStep(\''+vid+'\',\'desc\')">2. Descubrimiento</div>'
-    +'<div class="spill" id="sp_acc_'+vid+'" onclick="switchVStep(\''+vid+'\',\'acc\')">3. Acciones</div>'
+    +'<div><div style="font-weight:700;font-size:14px">'+v.nombre+'</div>'
+    +'<div style="font-size:11px;color:var(--muted)">'+v.rol+'</div></div>'
+    +'</div>'
+    +'<div style="display:flex;align-items:center;gap:16px">'
+    +'<div style="text-align:right">'
+    +'<div style="font-size:18px;font-weight:800;color:'+colPct+'">'+cumplTotal+'/'+totalComp+'</div>'
+    +'<div style="font-size:10px;color:var(--muted)">compromisos</div>'
+    +'</div>'
+    +'<span style="color:var(--muted)">▼</span>'
+    +'</div>'
+    +'<div onclick="event.stopPropagation()" style="display:flex;align-items:center;gap:6px">'
+    +'<select id="motAus_'+vid+'" onchange="" style="font-size:11px;padding:3px 6px;border:1px solid var(--border);border-radius:6px;display:none"><option value="">Motivo...</option><option value="Enfermedad">Enfermedad</option><option value="Viaje de trabajo">Viaje de trabajo</option><option value="Vacaciones">Vacaciones</option><option value="Emergencia familiar">Emergencia familiar</option><option value="Permiso">Permiso</option><option value="Otro">Otro</option></select>'
+    +'<button class="btn btn-sm" style="font-size:11px;background:#fef3c7;color:#92400e;border:1px solid #fde68a" onclick="toggleAusente(\''+vid+'\')">Ausente</button>'
     +'</div>'
 
-    // PANEL 1: DATOS
-    +'<div class="vpanel active" id="vp_dat_'+vid+'">'
-    +'<div class="tb">'+tbKpi+'</div>'
-    +dataCardHTML(tipo, v.nombre)
-    +'<button class="btn btn-p" style="margin-top:10px" onclick="switchVStep(\''+vid+'\',\'desc\');var e=document.getElementById(\'sp_dat_'+vid+'\');if(e)e.classList.add(\'done\')">'
-    +'Datos revisados → Descubrimiento</button>'
+    +'</div>'
+    // ── CUERPO ───────────────────────────────────────────────────
+    +'<div class="vbody" id="vbody_'+vid+'" style="display:none;padding:16px">'
+
+    // Bloque 1: Pipeline (lectura)
+    +'<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:12px;margin-bottom:16px">'
+    +'<div style="font-size:11px;font-weight:700;color:#1d4ed8;text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px">📊 Pipeline — esta semana</div>'
+    +'<div style="display:flex;gap:20px;flex-wrap:wrap">'
+    +'<div><div style="font-size:22px;font-weight:800;color:var(--navy)">'+enCot+'</div><div style="font-size:11px;color:var(--muted)">En cotización</div></div>'
+    +'<div><div style="font-size:22px;font-weight:800;color:var(--green)">'+nuevos.length+'</div><div style="font-size:11px;color:var(--muted)">Clientes nuevos $</div></div>'
+    +'<div><div style="font-size:22px;font-weight:800;color:var(--navy)">$'+montoGan.toLocaleString('es-MX')+'</div><div style="font-size:11px;color:var(--muted)">Venta acum.</div></div>'
+    +'</div>'
+    +(nuevos.length?'<div style="margin-top:10px;font-size:11px;color:var(--text2)">'+nuevos.map(p=>'<span style="background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:4px;margin-right:4px">'+p.nombre+'</span>').join('')+'</div>':'')
     +'</div>'
 
-    // PANEL 2: DESCUBRIMIENTO
-    +'<div class="vpanel" id="vp_desc_'+vid+'">'
-    +'<div class="tb">'+TB.desc+'</div>'
-    +'<div class="form-group"><label>Análisis y descubrimiento</label>'
-    +'<textarea placeholder="¿Qué patrón ves? ¿Qué pregunta te generan estos datos? ¿Qué oportunidad o riesgo identificas..." style="min-height:120px"></textarea></div>'
-    +'<div style="display:flex;gap:8px">'
-    +'<button class="btn btn-g" onclick="switchVStep(\''+vid+'\',\'dat\')">← Atrás</button>'
-    +'<button class="btn btn-p" onclick="switchVStep(\''+vid+'\',\'acc\');var e=document.getElementById(\'sp_desc_'+vid+'\');if(e)e.classList.add(\'done\');addAccion(\''+vid+'\',\''+camino+'\')">'
-    +'Guardar → Acciones</button>'
-    +'</div></div>'
+    // Bloque 2: Compromisos por tipo
+    +'<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:12px">📌 Compromisos del mes</div>'
+    +Object.entries(porTipo).map(([tipo,items])=>seccionTipo(tipo,items)).join('')
 
-    // PANEL 3: ACCIONES
-    +'<div class="vpanel" id="vp_acc_'+vid+'">'
-    +'<div class="tb">'+TB.acc+'</div>'
-    +'<div id="vacc_'+vid+'"></div>'
-    +'<button class="add-btn" onclick="addAccion(\''+vid+'\',\''+camino+'\')">+ Agregar acción</button>'
-    +'<button class="save-btn" id="vbtn_'+vid+'" onclick="finalizarVend(\''+vid+'\',\''+v.nombre+'\')">💾 Guardar acciones y finalizar</button>'
+    // Bloque 3: Próximos compromisos (solo lectura)
+    +'<div style="margin-top:16px;padding:12px;background:var(--surface2);border-radius:8px">'
+    +'<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">📅 Compromisos siguientes</div>'
+    +(comps.filter(c=>c.estatus==='Validado'&&!c.completado).length
+      ? comps.filter(c=>c.estatus==='Validado'&&!c.completado).map(c=>
+          '<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border)">'
+          +'<span style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;background:rgba(37,99,235,.08);color:#1d4ed8">'+(c.tipo||'General')+'</span>'
+          +'<span style="font-size:12px;color:var(--text2)">'+c.descripcion+'</span>'
+          +'</div>'
+        ).join('')
+      : '<div style="font-size:12px;color:var(--muted);text-align:center;padding:8px">Sin compromisos pendientes</div>'
+    )
     +'</div>'
-    +'</div></div>';
+    +'</div>'  // fin vbody
+    +'</div>'; // fin vsec
 }
-
 function growVendedorHTML(v){
   const vid = v.nombre.replace(/\s+/g,'_');
   const vt = VENTA_ERP[v.nombre]||{};
@@ -998,17 +1111,210 @@ function growVendedorHTML(v){
     +'</div></div>';
 }
 
-function renderWBRVendedores(tipo, semKey){
-  const html = tipo===4
-    ? EQUIPO.map(v=>growVendedorHTML(v)).join('')
-    : EQUIPO.map(v=>vendedorBloqueHTML(v, tipo)).join('');
-  document.getElementById('wbrVendedores').innerHTML = html;
+function toggleAusente(vid) {
+  const motSel = document.getElementById('motAus_'+vid);
+  const vsec   = document.getElementById('vsec_'+vid);
+  const vbody  = document.getElementById('vbody_'+vid);
+  const vObj   = EQUIPO.find(e => e.nombre.replace(/\s+/g,'_') === vid);
+  if(!vObj) return;
+
+  if(vObj._ausente) {
+    // Desmarcar ausente
+    vObj._ausente = false;
+    vObj._motivoAusencia = '';
+    if(motSel) motSel.style.display = 'none';
+    if(vsec) vsec.style.opacity = '1';
+    if(vbody) vbody.style.display = 'block';
+    toast('↩ '+vObj.nombre+' marcado como presente');
+  } else {
+    // Marcar ausente — verificar motivo
+    const motivo = motSel?.value;
+    if(!motivo) {
+      if(motSel) motSel.style.display = 'inline-block';
+      toast('Selecciona el motivo de ausencia','err');
+      return;
+    }
+    vObj._ausente = true;
+    vObj._motivoAusencia = motivo;
+    if(motSel) motSel.style.display = 'none';
+    if(vsec) vsec.style.opacity = '0.45';
+    if(vbody) vbody.style.display = 'none';
+    toast('🚫 '+vObj.nombre+' marcado como ausente — '+motivo);
+  }
 }
 
+function palomearComp(id, vid) {
+  const c = _compromisos.find(x=>x.id===id);
+  if(!c) return;
+  c.completado = true;
+  c.estatus = 'Cumplido';
+  c.fecha_cumplido = new Date().toISOString().slice(0,10);
+  updateCompromiso({ id, completado:true, estatus:'Cumplido',
+    palomeado_por: 'David', fecha_cumplido: c.fecha_cumplido })
+    .then(r => { if(r&&r.ok) console.log('✅ Compromiso cumplido en Sheet'); })
+    .catch(e => console.warn('⚠️ Error:', e));
+  toast('✅ Compromiso marcado como cumplido');
+  refreshVendedor(vid);
+  renderDash();
+}
+
+function tacharComp(id, vid) {
+  const nota = prompt('Motivo de no cumplimiento (obligatorio):','')?.trim();
+  if(nota === null) return; // canceló
+  if(!nota) { toast('Escribe el motivo','err'); return; }
+  const c = _compromisos.find(x=>x.id===id);
+  if(!c) return;
+  c.estatus = 'No cumplido';
+  c.nota_cierre = nota;
+  updateCompromiso({ id, estatus:'No cumplido', nota_cierre: nota,
+    palomeado_por: 'David' })
+    .then(r => { if(r&&r.ok) console.log('✅ Compromiso tachado en Sheet'); })
+    .catch(e => console.warn('⚠️ Error:', e));
+  toast('✗ Compromiso marcado como no cumplido');
+  refreshVendedor(vid);
+  renderDash();
+}
+
+function agregarExtraComp(vid, tipo) {
+  const vObj = EQUIPO.find(e => e.nombre.replace(/\s+/g,'_') === vid);
+  if(!vObj) return;
+
+  // Crear o reutilizar el modal
+  let m = document.getElementById('modalExtraComp');
+  if(!m){
+    m = document.createElement('div');
+    m.id = 'modalExtraComp';
+    m.className = 'modal-overlay';
+    m.innerHTML = '<div class="modal" style="max-width:460px">'
+      +'<div class="modal-header">'
+      +'<h3 id="extraCompTit">Compromiso extra cumplido</h3>'
+      +'<button class="modal-close" onclick="closeModal(\'modalExtraComp\')">✕</button>'
+      +'</div>'
+      +'<input type="hidden" id="extraVid">'
+      +'<input type="hidden" id="extraTipo">'
+      +'<div style="background:#d1fae5;border:1px solid #a7f3d0;border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:12px;color:#065f46">'
+      +'💡 Este compromiso <strong>ya fue cumplido</strong> — se registra directamente como logro adicional del mes.'
+      +'</div>'
+      +'<div class="form-group">'
+      +'<label>Vendedor/a</label>'
+      +'<input id="extraVendNombre" readonly style="background:var(--surface2);color:var(--text)">'
+      +'</div>'
+      +'<div class="g2">'
+      +'<div class="form-group"><label>Tipo</label>'
+      +'<input id="extraTipoLabel" readonly style="background:var(--surface2);color:var(--text)">'
+      +'</div>'
+      +'<div class="form-group"><label>Mes</label>'
+      +'<input id="extraMes" type="month" value="'+new Date().toISOString().slice(0,7)+'">'
+      +'</div>'
+      +'</div>'
+      +'<div class="form-group">'
+      +'<label>Código o nombre del cliente</label>'
+      +'<input id="extraCodigo" placeholder="Ej. CLT-0044 o DISTRIBUIDORA FLORES...">'
+      +'<div style="font-size:11px;color:var(--muted);margin-top:3px">Se usará para cruzar con el ERP y dar seguimiento</div>'
+      +'</div>'
+      +'<div class="form-group">'
+      +'<label>¿Qué logró? Descríbelo</label>'
+      +'<textarea id="extraDesc" rows="3" placeholder="Ej. Visité a CLT-0044 y cerramos pedido de $18,000..."></textarea>'
+      +'</div>'
+      +'<div class="form-group">'
+      +'<label>Nota de cierre (opcional)</label>'
+      +'<input id="extraNota" placeholder="Detalles adicionales...">'
+      +'</div>'
+      +'<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">'
+      +'<button class="btn btn-g" onclick="closeModal(\'modalExtraComp\')">Cancelar</button>'
+      +'<button class="btn btn-p" onclick="confirmarExtraComp()">✅ Guardar como cumplido</button>'
+      +'</div>'
+      +'</div>';
+    document.body.appendChild(m);
+  }
+
+  // Llenar datos del modal
+  document.getElementById('extraVid').value         = vid;
+  document.getElementById('extraTipo').value        = tipo;
+  document.getElementById('extraVendNombre').value  = vObj.nombre;
+  document.getElementById('extraTipoLabel').value   = tipo;
+  document.getElementById('extraDesc').value        = '';
+  document.getElementById('extraCodigo').value      = '';
+  document.getElementById('extraNota').value        = '';
+  document.getElementById('extraCompTit').textContent = 'Extra cumplido — ' + tipo;
+
+  // Color del título según tipo
+  const colores = {'BCG':'#065f46','Recuperación':'#c0392b','Prospección':'#1d4ed8','General':'#6c757d'};
+  document.getElementById('extraCompTit').style.color = colores[tipo] || '#1a2744';
+
+  openModal('modalExtraComp');
+}
+
+function confirmarExtraComp() {
+  const vid  = document.getElementById('extraVid').value;
+  const tipo = document.getElementById('extraTipo').value;
+  const desc = document.getElementById('extraDesc').value.trim();
+  const nota = document.getElementById('extraNota').value.trim();
+  const mes  = document.getElementById('extraMes').value;
+  const vObj = EQUIPO.find(e => e.nombre.replace(/\s+/g,'_') === vid);
+
+  if(!desc) { toast('Describe el compromiso logrado','err'); return; }
+  if(!vObj) return;
+
+  const hoy = new Date().toISOString().slice(0,10);
+  const codigo = document.getElementById('extraCodigo').value.trim();
+
+  const newComp = {
+    id:              'C' + Date.now(),
+    vendedor:        vObj.nombre,
+    mes,
+    descripcion:     desc,
+    tipo,
+    codigo_cliente:  codigo,
+    estatus:         'Cumplido',
+    completado:      true,
+    fecha:           mes + '-28',
+    fecha_cumplido:  hoy,
+    nota_cierre:     nota || 'Logro extra registrado en sesión WBR',
+    creado_por:      'David',
+    palomeado_por:   'David',
+  };
+
+  // Agregar al cache local
+  if(!vObj._compromisos) vObj._compromisos = [];
+  vObj._compromisos.push(newComp);
+
+  // Guardar en Sheet
+  saveCompromiso(newComp)
+    .then(r => { if(r&&r.ok) console.log('✅ Extra cumplido guardado en Sheet:', r.id); })
+    .catch(e => console.warn('⚠️ Error guardando extra:', e));
+
+  closeModal('modalExtraComp');
+  toast('✅ Logro extra registrado — ' + tipo);
+  refreshVendedor(vid);
+}
+
+function refreshVendedor(vid) {
+  const vObj = EQUIPO.find(e => e.nombre.replace(/\s+/g,'_') === vid);
+  if(!vObj) return;
+  const el = document.getElementById('vsec_' + vid);
+  if(!el) return;
+  const newEl = document.createElement('div');
+  newEl.innerHTML = vendedorBloqueHTML(vObj);
+  el.replaceWith(newEl.firstElementChild);
+  // Mantener abierto el bloque
+  const body = document.getElementById('vbody_' + vid);
+  if(body) body.style.display = 'block';
+}
+
+function renderWBRVendedores() {
+  document.getElementById('wbrVendedores').innerHTML =
+    EQUIPO.map(v => vendedorBloqueHTML(v)).join('');
+}
+
+
 function toggleV(vid){
-  const b=document.getElementById('vbody_'+vid),a=document.getElementById('varrow_'+vid);
-  if(!b)return;const o=b.classList.contains('open');
-  b.classList.toggle('open',!o);if(a)a.textContent=o?'▾ Abrir':'▴ Cerrar';
+  const b = document.getElementById('vbody_'+vid);
+  const a = document.querySelector('#vsec_'+vid+' .vhdr span:last-child');
+  if(!b) return;
+  const open = b.style.display !== 'none';
+  b.style.display = open ? 'none' : 'block';
+  if(a) a.textContent = open ? '▼' : '▲';
 }
 function switchVStep(vid,step){
   ['dat','desc','acc'].forEach(s=>{
