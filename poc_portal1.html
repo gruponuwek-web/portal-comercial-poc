@@ -2768,92 +2768,85 @@ function marcarCompromiso(id){
 }
 
 function abrirNuevoCompromiso(vendedor){
-  // Coordinador y gerencia pueden crear para cualquiera
-  // Vendedora puede crear sus propios (quedan en Borrador)
   const puedeCrear = puedeEditarCompromiso() || rolActual.tipo==='vendedor';
-  if(!puedeCrear){ toast('Sin permisos para crear compromisos','err'); return; }
-  let m = document.getElementById('modalCompromiso');
-  if(!m){
-    m = document.createElement('div');
-    m.id = 'modalCompromiso';
-    m.className = 'modal-overlay';
-    const indOpts = window._industriasOpts || '<option>Comercializadora</option>';
-    m.innerHTML = '<div class="modal" style="max-width:480px">'
-      +'<div class="modal-header"><h3 id="compTit">Nuevo compromiso</h3>'
-      +'<button class="modal-close" onclick="closeModal(\'modalCompromiso\')">✕</button></div>'
-      +'<input type="hidden" id="compId">'
-      +'<div class="form-group"><label>Vendedor/a</label>'
-      +(puedeEditarCompromiso()
-        ? '<select id="compVend">'+EQUIPO.map(v=>'<option>'+v.nombre+'</option>').join('')+'</select>'
-        : '<input id="compVend" readonly value="'+rolActual.nombre+'" style="background:var(--surface2)">'
-      )
-      +'</div>'
-      +'<div class="g2">'
-      +'<div class="form-group"><label>Mes</label>'
-      +'<input type="month" id="compMes" value="'+new Date().toISOString().slice(0,7)+'"></div>'
-      +'<div class="form-group"><label>Industria</label>'
-      +'<select id="compIndustria">'+indOpts+'</select></div>'
-      +'</div>'
-      +'<div class="g2">'
-      +'<div class="form-group"><label>Tipo</label>'
-      +'<select id="compTipo"><option value="General">General</option><option value="BCG">BCG</option><option value="Recuperación">Recuperación</option><option value="Prospección">Prospección</option></select></div>'
-      +'<div class="form-group"><label>Mes</label>'
-      +'<input type="month" id="compMes" value="'+new Date().toISOString().slice(0,7)+'"></div>'
-      +'</div>'
-      +'<div class="form-group"><label>Descripción del compromiso</label>'
-      +'<textarea id="compDesc" rows="3" placeholder="¿Qué se comprometió a hacer?"></textarea></div>'
-      +'<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">'
-      +'<button class="btn btn-g" onclick="closeModal(\'modalCompromiso\')">Cancelar</button>'
-      +'<button class="btn btn-p" onclick="guardarCompromiso()">💾 Guardar</button>'
-      +'</div></div>';
-    document.body.appendChild(m);
-  }
-  // Actualizar industrias si ya cargaron
-  const selInd = document.getElementById('compIndustria');
-  if(selInd && window._industriasOpts) selInd.innerHTML = window._industriasOpts;
-  if(vendedor){ const sel=document.getElementById('compVend'); if(sel) sel.value=vendedor; }
-  document.getElementById('compId').value='';
-  document.getElementById('compDesc').value='';
-  document.getElementById('compTit').textContent='Nuevo compromiso';
+  if(!puedeCrear){ toast('Sin permisos','err'); return; }
+
+  const esCoord = puedeEditarCompromiso();
+  const indOpts = window._industriasOpts || '<option>Comercializadora</option>';
+
+  // Siempre recrear el modal para evitar estado viciado
+  const old = document.getElementById('modalCompromiso');
+  if(old) old.remove();
+
+  const m = document.createElement('div');
+  m.id = 'modalCompromiso';
+  m.className = 'modal-overlay';
+  m.innerHTML = '<div class="modal" style="max-width:480px">'
+    +'<div class="modal-header">'
+    +'<h3 id="compTit">Nuevo compromiso</h3>'
+    +'<button class="modal-close" onclick="closeModal(\'modalCompromiso\')">✕</button>'
+    +'</div>'
+    +'<input type="hidden" id="compId">'
+    // Vendedor/a
+    +'<div class="form-group"><label>Vendedor/a</label>'
+    +(esCoord
+      ? '<select id="compVend">'+EQUIPO.map(v=>'<option>'+v.nombre+'</option>').join('')+'</select>'
+      : '<input id="compVend" readonly value="'+rolActual.nombre+'" style="background:var(--surface2)">'
+    )
+    +'</div>'
+    // Mes y Tipo en fila
+    +'<div class="g2">'
+    +'<div class="form-group"><label>Mes</label>'
+    +'<input type="month" id="compMes" value="'+new Date().toISOString().slice(0,7)+'"></div>'
+    +'<div class="form-group"><label>Tipo</label>'
+    +'<select id="compTipo">'
+    +'<option value="General">General</option>'
+    +'<option value="BCG">BCG</option>'
+    +'<option value="Recuperación">Recuperación</option>'
+    +'<option value="Prospección">Prospección</option>'
+    +'</select></div>'
+    +'</div>'
+    // Industria
+    +'<div class="form-group"><label>Industria</label>'
+    +'<select id="compIndustria">'+indOpts+'</select></div>'
+    // Descripción
+    +'<div class="form-group"><label>Descripción</label>'
+    +'<textarea id="compDesc" rows="3" placeholder="¿Qué se comprometió a hacer?"></textarea></div>'
+    // Botones
+    +'<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">'
+    +'<button class="btn btn-g" onclick="closeModal(\'modalCompromiso\')">Cancelar</button>'
+    +'<button class="btn btn-p" onclick="guardarCompromiso()">💾 Guardar</button>'
+    +'</div></div>';
+  document.body.appendChild(m);
+
+  // Prellenar vendedor si viene del contexto
+  const selVend = document.getElementById('compVend');
+  if(vendedor && selVend && selVend.tagName === 'SELECT') selVend.value = vendedor;
+
   openModal('modalCompromiso');
 }
 
 function editarCompromiso(id){
-  if(!puedeEditarCompromiso()){ toast('Solo el coordinador puede editar compromisos','err'); return; }
+  if(!puedeEditarCompromiso()){ toast('Solo el coordinador puede editar','err'); return; }
   const c = COMPROMISOS.find(x=>x.id===id);
   if(!c) return;
-
-  // Asegurar que el modal existe sin recrearlo
-  let m = document.getElementById('modalCompromiso');
-  if(!m){
-    abrirNuevoCompromiso(c.vendedor);
-    // Esperar a que el DOM esté listo
-    setTimeout(() => _llenarModalCompromiso(id, c), 100);
-    return;
-  }
-  // Modal ya existe — llenar directamente sin recrear
-  _llenarModalCompromiso(id, c);
-  openModal('modalCompromiso');
+  // Abrir modal con rol coordinador (siempre muestra el select de vendedoras)
+  abrirNuevoCompromiso(c.vendedor);
+  // Llenar con datos del compromiso existente
+  setTimeout(() => _llenarModalCompromiso(id, c), 30);
 }
 
 function _llenarModalCompromiso(id, c) {
-  const elId   = document.getElementById('compId');
-  const elDesc = document.getElementById('compDesc');
-  const elMes  = document.getElementById('compMes');
-  const elTipo = document.getElementById('compTipo');
-  const elVend = document.getElementById('compVend');
-  const elTit  = document.getElementById('compTit');
-  const elInd  = document.getElementById('compIndustria');
-
-  if(elId)   elId.value   = id;
-  if(elDesc) elDesc.value = c.descripcion || '';
-  if(elMes)  elMes.value  = c.mes || '';
-  if(elTipo && c.tipo) elTipo.value = c.tipo;
-  if(elVend) elVend.value = c.vendedor || '';
-  if(elTit)  elTit.textContent = 'Editar compromiso — ' + (c.vendedor||'');
-  if(elInd && c.industria) elInd.value = c.industria;
-
-  console.log('✅ Modal llenado con ID:', id, '— compId.value:', elId?.value);
+  document.getElementById('compId').value          = id;
+  document.getElementById('compDesc').value        = c.descripcion || '';
+  document.getElementById('compMes').value         = c.mes || '';
+  document.getElementById('compTipo').value        = c.tipo || 'General';
+  document.getElementById('compTit').textContent   = 'Editar — ' + (c.vendedor||'');
+  const selInd = document.getElementById('compIndustria');
+  if(selInd && c.industria) selInd.value = c.industria;
+  const selVend = document.getElementById('compVend');
+  if(selVend && c.vendedor) selVend.value = c.vendedor;
+  console.log('✅ Modal llenado — ID:', id, 'compId.value:', document.getElementById('compId').value);
 }
 
 function guardarCompromiso(){
