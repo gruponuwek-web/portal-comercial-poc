@@ -704,27 +704,27 @@ function selTipo(num){
 function crearSesion(){
   const fecha  = document.getElementById('sesionFecha')?.value  || new Date().toISOString().slice(0,10);
   const semana = document.getElementById('sesionSemana')?.value || getSemAnio(fecha);
+  const mes    = new Date().toISOString().slice(0,7);
 
   const syncEl = document.getElementById('wbrSyncIndicator');
   if(syncEl) syncEl.style.display = 'block';
   document.getElementById('btnCrear').disabled = true;
 
-  // Cargar datos de TODO el equipo en paralelo
-  const mes = new Date().toISOString().slice(0,7);
-  const calls = EQUIPO.map(v =>
-    Promise.all([
-      jsonpFetch(API_S2 + '?action=getPipeline&vendedor='    + encodeURIComponent(v.nombre)),
-      jsonpFetch(API_S2 + '?action=getCompromisos&vendedor=' + encodeURIComponent(v.nombre) + '&mes=' + mes),
-    ]).then(([pipe, comps]) => {
-      v._pipeline    = pipe  || [];
-      v._compromisos = comps || [];
-    }).catch(() => {
-      v._pipeline    = [];
-      v._compromisos = [];
-    })
-  );
+  // Cargar TODOS los compromisos del mes + pipeline de cada vendedora
+  Promise.all([
+    jsonpFetch(API_S2 + '?action=getCompromisos&mes=' + mes),
+    ...EQUIPO.map(v => jsonpFetch(API_S2 + '?action=getPipeline&vendedor=' + encodeURIComponent(v.nombre))
+      .then(pipe => { v._pipeline = pipe || []; })
+      .catch(() => { v._pipeline = []; })
+    )
+  ]).then(([allComps]) => {
+    // Distribuir compromisos por vendedora
+    const comps = allComps || [];
+    EQUIPO.forEach(v => {
+      v._compromisos = comps.filter(c => c.vendedor === v.nombre);
+    });
+    console.log('✅ WBR — compromisos totales:', comps.length, '— equipo:', EQUIPO.length);
 
-  Promise.all(calls).then(() => {
     if(syncEl) syncEl.style.display = 'none';
     document.getElementById('btnCrear').disabled = false;
 
@@ -739,16 +739,16 @@ function crearSesion(){
     const info = document.getElementById('sesionInfo');
     if(info) info.textContent = fecha;
 
-    // Renderizar TODO el equipo
+    // Renderizar todo el equipo
     document.getElementById('wbrVendedores').innerHTML =
       EQUIPO.map(v => vendedorBloqueHTML(v)).join('');
 
-    console.log('✅ Sesión WBR iniciada — equipo completo');
-    toast('✅ Sesión WBR iniciada');
+    toast('✅ Sesión WBR iniciada — ' + comps.length + ' compromisos cargados');
   }).catch(e => {
     if(syncEl) syncEl.style.display = 'none';
     document.getElementById('btnCrear').disabled = false;
-    toast('⚠️ Error cargando datos','err');
+    console.error('Error WBR:', e);
+    toast('⚠️ Error cargando datos del Sheet','err');
   });
 }
 function renderMktBloque(semKey){
