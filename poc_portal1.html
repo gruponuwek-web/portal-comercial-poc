@@ -2768,7 +2768,10 @@ function marcarCompromiso(id){
 }
 
 function abrirNuevoCompromiso(vendedor){
-  if(!puedeEditarCompromiso()){ toast('Solo el coordinador puede crear compromisos','err'); return; }
+  // Coordinador y gerencia pueden crear para cualquiera
+  // Vendedora puede crear sus propios (quedan en Borrador)
+  const puedeCrear = puedeEditarCompromiso() || rolActual.tipo==='vendedor';
+  if(!puedeCrear){ toast('Sin permisos para crear compromisos','err'); return; }
   let m = document.getElementById('modalCompromiso');
   if(!m){
     m = document.createElement('div');
@@ -2780,9 +2783,11 @@ function abrirNuevoCompromiso(vendedor){
       +'<button class="modal-close" onclick="closeModal(\'modalCompromiso\')">✕</button></div>'
       +'<input type="hidden" id="compId">'
       +'<div class="form-group"><label>Vendedor/a</label>'
-      +'<select id="compVend">'
-      +EQUIPO.map(v=>'<option>'+v.nombre+'</option>').join('')
-      +'</select></div>'
+      +(puedeEditarCompromiso()
+        ? '<select id="compVend">'+EQUIPO.map(v=>'<option>'+v.nombre+'</option>').join('')+'</select>'
+        : '<input id="compVend" readonly value="'+rolActual.nombre+'" style="background:var(--surface2)">'
+      )
+      +'</div>'
       +'<div class="g2">'
       +'<div class="form-group"><label>Mes</label>'
       +'<input type="month" id="compMes" value="'+new Date().toISOString().slice(0,7)+'"></div>'
@@ -2815,29 +2820,40 @@ function abrirNuevoCompromiso(vendedor){
 
 function editarCompromiso(id){
   if(!puedeEditarCompromiso()){ toast('Solo el coordinador puede editar compromisos','err'); return; }
-  const c = COMPROMISOS.find(x=>x.id===id); if(!c) return;
+  const c = COMPROMISOS.find(x=>x.id===id);
+  if(!c) return;
 
-  // Asegurar que el modal existe
-  abrirNuevoCompromiso(c.vendedor);
+  // Asegurar que el modal existe sin recrearlo
+  let m = document.getElementById('modalCompromiso');
+  if(!m){
+    abrirNuevoCompromiso(c.vendedor);
+    // Esperar a que el DOM esté listo
+    setTimeout(() => _llenarModalCompromiso(id, c), 100);
+    return;
+  }
+  // Modal ya existe — llenar directamente sin recrear
+  _llenarModalCompromiso(id, c);
+  openModal('modalCompromiso');
+}
 
-  // Poblar DESPUÉS de que el modal existe — con timeout para garantizar el DOM
-  setTimeout(() => {
-    const elId   = document.getElementById('compId');
-    const elDesc = document.getElementById('compDesc');
-    const elMes  = document.getElementById('compMes');
-    const elTit  = document.getElementById('compTit');
-    const elTipo = document.getElementById('compTipo');
-    const elVend = document.getElementById('compVend');
+function _llenarModalCompromiso(id, c) {
+  const elId   = document.getElementById('compId');
+  const elDesc = document.getElementById('compDesc');
+  const elMes  = document.getElementById('compMes');
+  const elTipo = document.getElementById('compTipo');
+  const elVend = document.getElementById('compVend');
+  const elTit  = document.getElementById('compTit');
+  const elInd  = document.getElementById('compIndustria');
 
-    if(elId)   elId.value   = id;
-    if(elDesc) elDesc.value = c.descripcion || '';
-    if(elMes)  elMes.value  = c.mes || '';
-    if(elTipo) elTipo.value = c.tipo || 'General';
-    if(elVend) elVend.value = c.vendedor || '';
-    if(elTit)  elTit.textContent = 'Editar — ' + (c.vendedor||'');
+  if(elId)   elId.value   = id;
+  if(elDesc) elDesc.value = c.descripcion || '';
+  if(elMes)  elMes.value  = c.mes || '';
+  if(elTipo && c.tipo) elTipo.value = c.tipo;
+  if(elVend) elVend.value = c.vendedor || '';
+  if(elTit)  elTit.textContent = 'Editar compromiso — ' + (c.vendedor||'');
+  if(elInd && c.industria) elInd.value = c.industria;
 
-    console.log('✅ Modal compromiso cargado con ID:', id);
-  }, 50);
+  console.log('✅ Modal llenado con ID:', id, '— compId.value:', elId?.value);
 }
 
 function guardarCompromiso(){
@@ -2850,20 +2866,25 @@ function guardarCompromiso(){
 
   const esCoord = puedeEditarCompromiso();
 
-  if(id){
-    // Editar — actualizar en local Y en Sheet (no duplicar)
-    const idx = COMPROMISOS.findIndex(x=>x.id===id);
-    if(idx>=0){
-      COMPROMISOS[idx] = {
-        ...COMPROMISOS[idx],
-        vendedor:vend, mes, industria:ind, descripcion:desc,
-        estatus: esCoord ? 'Validado' : COMPROMISOS[idx].estatus||'Borrador'
-      };
-      syncCompromisoSheet(COMPROMISOS[idx]);
-    }
+  // Doble verificación: id debe ser string no vacío Y existir en COMPROMISOS
+  const idLimpio = (id||'').trim();
+  const compExistente = idLimpio ? COMPROMISOS.find(x=>x.id===idLimpio) : null;
+
+  if(idLimpio && compExistente){
+    // Editar — actualizar en local Y en Sheet
+    const idx = COMPROMISOS.indexOf(compExistente);
+    COMPROMISOS[idx] = {
+      ...compExistente,
+      vendedor:vend, mes, industria:ind, descripcion:desc,
+      tipo: document.getElementById('compTipo')?.value || compExistente.tipo || 'General',
+      estatus: esCoord ? 'Validado' : compExistente.estatus||'Borrador'
+    };
+    syncCompromisoSheet(COMPROMISOS[idx]);
+    console.log('✅ Editando compromiso existente:', idLimpio);
     toast('✅ Compromiso actualizado');
   } else {
-    // Nuevo — generar ID único local y sincronizar
+    // Nuevo — idLimpio vacío o no existe en COMPROMISOS
+    if(idLimpio) console.warn('⚠️ ID no encontrado en COMPROMISOS:', idLimpio, '— creando nuevo');
     const _nc = {
       id: 'C' + Date.now(),
       vendedor:     vend,
