@@ -3734,6 +3734,8 @@ function renderCompromisosIndividuales() {
     `;
   }).join('');
 }
+
+function toggleMesComp(header) {
   const body = header.nextElementSibling;
   const arrow = header.querySelector('span:last-child');
   const isOpen = body.style.display !== 'none';
