@@ -740,12 +740,14 @@ async function cargarDatosS1() {
     // Lanzar TODAS las llamadas en paralelo
     const compUrl = esCoordOrGer ? API_S2+'?action=getCompromisos' : API_S2+'?action=getCompromisos&vendedor='+encodeURIComponent(rolActual.nombre);
     const pipeUrl = esCoordOrGer ? API_S2+'?action=getPipeline'    : API_S2+'?action=getPipeline&vendedor='+encodeURIComponent(rolActual.nombre);
+    const planUrl = esCoordOrGer ? API_S2+'?action=getPlanGrow'    : API_S2+'?action=getPlanGrow&vendedor='+encodeURIComponent(rolActual.nombre);
 
-    const [metas, cat, comps, pipe] = await Promise.all([
+    const [metas, cat, comps, pipe, planes] = await Promise.all([
       jsonpFetch(API_S1 + '?action=getMetas&mes=' + mesActivo),
       jsonpFetch(API_S1 + '?action=getCatalogos'),
       jsonpFetch(compUrl),
       jsonpFetch(pipeUrl),
+      jsonpFetch(planUrl),
     ]);
 
     // Metas del mes — ya cargadas en Promise.all
@@ -789,6 +791,18 @@ async function cargarDatosS1() {
       console.log('✅ Compromisos cargados:', comps.length);
     } else {
       console.log('ℹ️ Sin compromisos en Sheet todavía');
+    }
+
+    // Planes GROW — ya cargados en Promise.all
+    Object.keys(PLAN_GROW).forEach(k => delete PLAN_GROW[k]);
+    if(planes && planes.length) {
+      planes.forEach(p => {
+        const key = 'plan_' + p.vendedor + '_' + p.mes;
+        PLAN_GROW[key] = p;
+      });
+      console.log('✅ Planes GROW cargados:', planes.length);
+    } else {
+      console.log('ℹ️ Sin planes GROW en Sheet todavía');
     }
 
     // Pipeline — ya cargado en Promise.all
@@ -3569,41 +3583,71 @@ function guardarPlanGrow(vendParam, esAprobacion) {
 
 function renderHistoricoCompromisos() {
   const esVendH = rolActual.tipo==='vendedor' || rolActual.tipo==='gerencia';
-  const misComps = esVendH
-    ? COMPROMISOS.filter(c => c.vendedor === rolActual.nombre && c.estatus !== 'Cancelado')
-    : COMPROMISOS.filter(c => c.estatus !== 'Cancelado');
+  
+  // Filtrar planes del vendedor actual (si es vendedor)
+  const planesArray = Object.values(PLAN_GROW);
+  const misPlan = esVendH
+    ? planesArray.filter(p => p.vendedor === rolActual.nombre)
+    : planesArray;
 
-  if(!misComps.length) return '<div style="text-align:center;padding:30px;color:var(--muted);font-size:13px">Sin compromisos registrados aún</div>';
+  if(!misPlan.length) return '<div style="text-align:center;padding:30px;color:var(--muted);font-size:13px">Sin planes GROW registrados aún</div>';
 
   // Agrupar por mes
   const porMes = {};
-  misComps.forEach(c => {
-    const m = c.mes || 'Sin mes';
+  misPlan.forEach(p => {
+    const m = p.mes || 'Sin mes';
     if(!porMes[m]) porMes[m] = [];
-    porMes[m].push(c);
+    porMes[m].push(p);
   });
 
   // Ordenar meses descendente
   const meses = Object.keys(porMes).sort().reverse();
 
   return meses.map((mes, idx) => {
-    const items = porMes[mes];
-    const cumplidos = items.filter(c => c.completado || c.estatus==='Cumplido').length;
-    const pct = items.length > 0 ? Math.round(cumplidos/items.length*100) : 0;
-    const colM = pct>=80?'var(--green)':pct>=50?'var(--yellow)':'var(--red)';
-    const isOpen = idx === 0; // Mes más reciente abierto por defecto
+    const planes = porMes[mes];
+    const aprobados = planes.filter(p => p.estatus === 'Aprobado').length;
+    const pct = planes.length > 0 ? Math.round(aprobados/planes.length*100) : 0;
+    const colM = pct===100?'var(--green)':pct>0?'var(--yellow)':'var(--red)';
+    const isOpen = idx === 0;
 
-    // Agrupar por vendedor dentro del mes (solo para coordinador)
     const porVend = {};
-    items.forEach(c => {
-      if(!porVend[c.vendedor]) porVend[c.vendedor] = [];
-      porVend[c.vendedor].push(c);
+    planes.forEach(p => {
+      if(!porVend[p.vendedor]) porVend[p.vendedor] = [];
+      porVend[p.vendedor].push(p);
     });
-
     const vendedores = Object.keys(porVend).sort();
 
-    const renderItemComp = (c) => {
-      const done = c.completado || c.estatus==='Cumplido';
+    const html = `
+      <div style="margin-bottom:12px;border:1px solid var(--border);border-radius:6px;overflow:hidden">
+        <button style="width:100%;padding:12px;text-align:left;font-weight:500;cursor:pointer;background:var(--bg-secondary);border:none;color:var(--text);font-size:14px;display:flex;justify-content:space-between;align-items:center" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">
+          <span>📅 ${mes} — ${planes.length} ${planes.length===1?'plan':'planes'}</span>
+          <span style="color:${colM};font-weight:bold">${pct}% ✓</span>
+        </button>
+        <div style="display:${isOpen?'block':'none'};padding:12px;border-top:1px solid var(--border);background:var(--bg)">
+          ${vendedores.map(v => `
+            <div style="margin-bottom:12px;padding:8px;background:var(--bg-secondary);border-radius:4px">
+              <strong style="color:var(--text-secondary);font-size:12px">${v}</strong>
+              <div style="margin-top:8px;font-size:13px">
+                ${(porVend[v]||[]).map(p => `
+                  <div style="padding:6px;margin:4px 0;background:var(--bg);border-left:3px solid ${p.estatus==='Aprobado'?'var(--green)':p.estatus==='Borrador'?'var(--yellow)':'var(--red)'};display:flex;justify-content:space-between;align-items:center">
+                    <span>
+                      <strong>${p.camino}</strong> — ${p.nombre || '(sin nombre)'}<br/>
+                      <span style="color:var(--muted);font-size:11px">${p.codigo||'—'} | ${p.industria||'—'} | ${p.ruta||'—'}</span>
+                    </span>
+                    <span style="font-size:11px;font-weight:bold;color:${p.estatus==='Aprobado'?'var(--green)':p.estatus==='Borrador'?'var(--yellow)':'var(--red)'}">
+                      ${p.estatus}
+                    </span>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+    return html;
+  }).join('');
+}
       const tipoBadge = '<span style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;background:'
         +(c.tipo==='BCG'?'rgba(14,122,92,.1);color:#065f46'
           :c.tipo==='Recuperación'?'rgba(192,57,43,.1);color:#c0392b'
