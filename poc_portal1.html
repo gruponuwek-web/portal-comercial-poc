@@ -772,6 +772,7 @@ async function cargarDatosS1() {
       const indOpts = cat.industrias.map(i => '<option>'+i+'</option>').join('');
       // Selects de FORMULARIO — solo industrias
       document.querySelectorAll('#pIndustria,#nlIndustria,#lmIndustria,#compIndustria').forEach(s => { if(s) s.innerHTML = indOpts; });
+      window._industriasOpts = indOpts;
       // Filtro del Kanban — conservar "Todas" al inicio
       const _fi = document.getElementById('pipFiltroIndustria');
       if(_fi) _fi.innerHTML = '<option value="">Todas las industrias</option>' + indOpts;
@@ -2772,56 +2773,36 @@ function abrirNuevoCompromiso(vendedor){
   if(!puedeCrear){ toast('Sin permisos','err'); return; }
 
   const esCoord = puedeEditarCompromiso();
-  const indOpts = window._industriasOpts || '<option>Comercializadora</option>';
 
-  // Siempre recrear el modal para evitar estado viciado
-  const old = document.getElementById('modalCompromiso');
-  if(old) old.remove();
+  // Actualizar industrias con las del Sheet
+  const selInd = document.getElementById('compIndustria');
+  if(selInd && window._industriasOpts) selInd.innerHTML = window._industriasOpts;
 
-  const m = document.createElement('div');
-  m.id = 'modalCompromiso';
-  m.className = 'modal-overlay';
-  m.innerHTML = '<div class="modal" style="max-width:480px">'
-    +'<div class="modal-header">'
-    +'<h3 id="compTit">Nuevo compromiso</h3>'
-    +'<button class="modal-close" onclick="closeModal(\'modalCompromiso\')">✕</button>'
-    +'</div>'
-    +'<input type="hidden" id="compId">'
-    // Vendedor/a
-    +'<div class="form-group"><label>Vendedor/a</label>'
-    +(esCoord
-      ? '<select id="compVend">'+EQUIPO.map(v=>'<option>'+v.nombre+'</option>').join('')+'</select>'
-      : '<input id="compVend" readonly value="'+rolActual.nombre+'" style="background:var(--surface2)">'
-    )
-    +'</div>'
-    // Mes y Tipo en fila
-    +'<div class="g2">'
-    +'<div class="form-group"><label>Mes</label>'
-    +'<input type="month" id="compMes" value="'+new Date().toISOString().slice(0,7)+'"></div>'
-    +'<div class="form-group"><label>Tipo</label>'
-    +'<select id="compTipo">'
-    +'<option value="General">General</option>'
-    +'<option value="BCG">BCG</option>'
-    +'<option value="Recuperación">Recuperación</option>'
-    +'<option value="Prospección">Prospección</option>'
-    +'</select></div>'
-    +'</div>'
-    // Industria
-    +'<div class="form-group"><label>Industria</label>'
-    +'<select id="compIndustria">'+indOpts+'</select></div>'
-    // Descripción
-    +'<div class="form-group"><label>Descripción</label>'
-    +'<textarea id="compDesc" rows="3" placeholder="¿Qué se comprometió a hacer?"></textarea></div>'
-    // Botones
-    +'<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">'
-    +'<button class="btn btn-g" onclick="closeModal(\'modalCompromiso\')">Cancelar</button>'
-    +'<button class="btn btn-p" onclick="guardarCompromiso()">💾 Guardar</button>'
-    +'</div></div>';
-  document.body.appendChild(m);
+  // Selector de vendedor según rol
+  const wrap = document.getElementById('compVendWrap');
+  if(wrap){
+    if(esCoord){
+      wrap.innerHTML = '<select id="compVend">'
+        + EQUIPO.map(v=>'<option value="'+v.nombre+'">'+v.nombre+'</option>').join('')
+        + '</select>';
+    } else {
+      wrap.innerHTML = '<input id="compVend" readonly value="'
+        + rolActual.nombre + '" style="background:var(--surface2);width:100%;padding:8px;border:1px solid var(--border);border-radius:6px">';
+    }
+  }
+
+  // Resetear campos para NUEVO compromiso
+  document.getElementById('compId').value   = '';
+  document.getElementById('compDesc').value = '';
+  document.getElementById('compMes').value  = new Date().toISOString().slice(0,7);
+  document.getElementById('compTipo').value = 'General';
+  document.getElementById('compTit').textContent = 'Nuevo compromiso';
 
   // Prellenar vendedor si viene del contexto
-  const selVend = document.getElementById('compVend');
-  if(vendedor && selVend && selVend.tagName === 'SELECT') selVend.value = vendedor;
+  if(vendedor){
+    const sel = document.getElementById('compVend');
+    if(sel) sel.value = vendedor;
+  }
 
   openModal('modalCompromiso');
 }
@@ -2829,11 +2810,25 @@ function abrirNuevoCompromiso(vendedor){
 function editarCompromiso(id){
   if(!puedeEditarCompromiso()){ toast('Solo el coordinador puede editar','err'); return; }
   const c = COMPROMISOS.find(x=>x.id===id);
-  if(!c) return;
-  // Abrir modal con rol coordinador (siempre muestra el select de vendedoras)
+  if(!c){ toast('Compromiso no encontrado','err'); return; }
+
+  // Abrir el modal en modo coordinador
   abrirNuevoCompromiso(c.vendedor);
-  // Llenar con datos del compromiso existente
-  setTimeout(() => _llenarModalCompromiso(id, c), 30);
+
+  // Llenar SINCRÓNICAMENTE — el modal ya existe en el DOM
+  document.getElementById('compId').value  = id;
+  document.getElementById('compDesc').value = c.descripcion || '';
+  document.getElementById('compMes').value  = c.mes || new Date().toISOString().slice(0,7);
+  document.getElementById('compTipo').value = c.tipo || 'General';
+  document.getElementById('compTit').textContent = 'Editar — ' + (c.vendedor||'');
+
+  const selInd = document.getElementById('compIndustria');
+  if(selInd && c.industria) selInd.value = c.industria;
+
+  const selVend = document.getElementById('compVend');
+  if(selVend) selVend.value = c.vendedor || '';
+
+  console.log('✅ editarCompromiso — ID en modal:', document.getElementById('compId').value);
 }
 
 function _llenarModalCompromiso(id, c) {
@@ -2855,6 +2850,9 @@ function guardarCompromiso(){
   const mes  = document.getElementById('compMes')?.value;
   const ind  = document.getElementById('compIndustria')?.value || '';
   const desc = document.getElementById('compDesc')?.value?.trim();
+
+  console.log('🔵 guardarCompromiso → id:', JSON.stringify(id), 'vend:', vend, 'mes:', mes, 'desc:', desc);
+
   if(!desc){ toast('Escribe la descripción del compromiso','err'); return; }
 
   const esCoord = puedeEditarCompromiso();
@@ -2894,6 +2892,7 @@ function guardarCompromiso(){
       fecha_cumplido: '',
     };
     COMPROMISOS.push(_nc);
+    console.log('🟢 Llamando syncCompromisoSheet con:', JSON.stringify(_nc));
     syncCompromisoSheet(_nc);
     toast('✅ Compromiso creado');
   }
@@ -3684,5 +3683,47 @@ renderDash();
 // Cargar datos reales del Sheet al iniciar
 cargarDatosS1();
 </script>
+
+<!-- MODAL COMPROMISOS — siempre en el DOM -->
+<div id="modalCompromiso" class="modal-overlay" style="display:none">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header">
+      <h3 id="compTit">Nuevo compromiso</h3>
+      <button class="modal-close" onclick="closeModal('modalCompromiso')">✕</button>
+    </div>
+    <input type="hidden" id="compId">
+    <div class="form-group">
+      <label>Vendedor/a</label>
+      <div id="compVendWrap"></div>
+    </div>
+    <div class="g2">
+      <div class="form-group">
+        <label>Mes</label>
+        <input type="month" id="compMes">
+      </div>
+      <div class="form-group">
+        <label>Tipo</label>
+        <select id="compTipo">
+          <option value="General">General</option>
+          <option value="BCG">BCG</option>
+          <option value="Recuperación">Recuperación</option>
+          <option value="Prospección">Prospección</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Industria</label>
+      <select id="compIndustria"><option value="Distribuidores">Distribuidores</option><option value="Industria">Industria</option><option value="Uso Personal">Uso Personal</option><option value="Comercio">Comercio</option><option value="Turismo y Centros Recreativos">Turismo y Centros Recreativos</option><option value="Oficinas">Oficinas</option><option value="Inst. de Salud">Inst. de Salud</option><option value="Inst. Gubernamentales">Inst. Gubernamentales</option><option value="Fabricantes">Fabricantes</option><option value="Inst. Edu. Públicas y Privadas">Inst. Edu. Públicas y Privadas</option></select>
+    </div>
+    <div class="form-group">
+      <label>Descripción</label>
+      <textarea id="compDesc" rows="3" placeholder="¿Qué se comprometió a hacer?"></textarea>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">
+      <button class="btn btn-g" onclick="closeModal('modalCompromiso')">Cancelar</button>
+      <button class="btn btn-p" onclick="guardarCompromiso()">💾 Guardar</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
