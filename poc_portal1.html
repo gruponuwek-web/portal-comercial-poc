@@ -355,6 +355,14 @@ tr:hover td{background:#fafbfc;}
 <div class="page" id="page-grow">
   <div class="ph"><h2>Mis Compromisos GROW</h2><p>Plan de ataque del siguiente mes — prospectos, cartera y recuperación</p></div>
   <div id="growPageContent"></div>
+  <!-- Histórico de compromisos -->
+  <div style="margin-top:24px">
+    <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:12px;display:flex;align-items:center;gap:8px">
+      📋 Histórico de compromisos
+      <div style="flex:1;height:1px;background:var(--border)"></div>
+    </div>
+    <div id="historicoCompromisos"></div>
+  </div>
 </div>
 
 <!-- ══════════ APROBACIONES (COORD) ══════════ -->
@@ -704,7 +712,7 @@ let MKT_REPORTES = [];
 //  CONEXIÓN CON GOOGLE SHEETS
 // ══════════════════════════════════════════
 const API_S1 = 'https://script.google.com/macros/s/AKfycbzkApyJsLCSq6ohALLSg6AUiGSznKAP6fDRUh8FCx8d-1r3VMrK26FMZGMjZx7rbf19/exec';
-const API_S2 = 'https://script.google.com/macros/s/AKfycbzZqmrTcAs4ytQh0DBROrw813XP5py3EfcR1ORPnS5uRYcuiiNRaCwsRkr-WMUdAa8dMg/exec';
+const API_S2 = 'https://script.google.com/macros/s/AKfycbyR7WyYY2ZAmXg4Gwucgh5xuhNV13fYnXkA1LbXL6uSnZ-hz-7HTQ373nT6SyK6MWofTA/exec';
 
 function jsonpFetch(url) {
   return new Promise((resolve, reject) => {
@@ -914,15 +922,27 @@ function syncActividadSheet(prospectoId, act, vendedor) {
 }
 
 function syncCompromisoSheet(c) {
+  // Siempre incluir el ID para que el Sheet haga UPDATE y no INSERT duplicado
+  if(!c.id) { console.warn('⚠️ syncCompromisoSheet: compromiso sin ID'); return; }
   const data = encodeURIComponent(JSON.stringify({
-    id: c.id, vendedor: c.vendedor, mes: c.mes,
-    descripcion: c.descripcion, fecha: c.fecha,
-    estatus: c.estatus, completado: c.completado,
-    nota_cierre: c.nota_cierre||'', sesion: c.sesion||'WBR',
-    creado_por: c.creado_por||'David'
+    id:           c.id,
+    vendedor:     c.vendedor,
+    mes:          c.mes,
+    descripcion:  c.descripcion,
+    fecha:        c.fecha || (c.mes ? c.mes+'-28' : ''),
+    estatus:      c.estatus   || 'Borrador',
+    completado:   c.completado || false,
+    nota_cierre:  c.nota_cierre  || '',
+    tipo:         c.tipo         || 'General',
+    creado_por:   c.creado_por   || rolActual.nombre,
+    palomeado_por: c.palomeado_por || '',
+    fecha_cumplido: c.fecha_cumplido || '',
   }));
   jsonpFetch(API_S2 + '?action=saveCompromiso&data=' + data)
-    .then(r => { if(r&&r.ok) console.log('✅ Compromiso en Sheet:', r.id||r.action); })
+    .then(r => {
+      if(r && r.ok) console.log('✅ Compromiso en Sheet:', r.action, r.id);
+      else console.warn('⚠️ Sheet respondió:', JSON.stringify(r));
+    })
     .catch(e => console.warn('⚠️ Error sync compromiso:', e));
 }
 
@@ -1237,39 +1257,35 @@ function cambiarRol(){
   document.getElementById('navMkt').style.display = esMkt?'flex':'none';
 
   renderDash();
-  // ── KPI Compromisos del mes ──────────────────────────────────────
-  const vNombreComp = esVend ? rolActual.nombre : (document.getElementById('dashFVend')?.value||'');
-  // Contar compromisos del mes activo del usuario seleccionado
-  const mesActual = new Date().toISOString().slice(0,7);
-  const mesKPI = new Date().toISOString().slice(0,7);
-  const compTotal = COMPROMISOS.filter(c => {
-    if(vNombreComp && c.vendedor !== vNombreComp) return false;
+  // ── KPI Compromisos del mes ──────────────────────────────────────────
+  const mesKPIComp = new Date().toISOString().slice(0,7);
+  const vNombreKPI = esVend ? rolActual.nombre : (document.getElementById('dashFVend')?.value||'');
+  const allComps = COMPROMISOS.filter(c => {
     if(c.estatus === 'Cancelado') return false;
-    // Mostrar del mes activo O si no tiene mes (compatibilidad)
-    return !c.mes || c.mes === mesKPI;
+    if(vNombreKPI && c.vendedor !== vNombreKPI) return false;
+    return !c.mes || c.mes === mesKPIComp;
   });
-  const compCerrados = compTotal.filter(c=>c.completado||c.estatus==='Completado');
-  const pctComp = compTotal.length>0 ? Math.round(compCerrados.length/compTotal.length*100) : 0;
-  const colComp = pctComp>=80?'var(--green)':pctComp>=50?'var(--yellow)':'var(--red)';
+  const cumplidos = allComps.filter(c => c.completado || c.estatus === 'Cumplido').length;
+  const total     = allComps.length;
+  const pct       = total > 0 ? Math.round(cumplidos / total * 100) : 0;
+  const colComp   = pct >= 80 ? 'var(--green)' : pct >= 50 ? 'var(--yellow)' : 'var(--red)';
 
   const dashMetasEl = document.getElementById('dashMetas');
-  if(dashMetasEl){
-    // Agregar KPI compromisos debajo del 5to indicador
-    const compCard = '<div style="margin-top:10px;padding:9px 12px;background:var(--blue-light);border:1px solid #bfdbfe;border-radius:8px">'
-      +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">'
-      +'<span style="font-size:11px;font-weight:700;color:var(--accent)">📌 Compromisos del mes</span>'
-      +'<span style="font-size:12px;font-weight:800;color:'+colComp+'">'+compCerrados.length+' / '+compTotal.length+'</span>'
-      +'</div>'
-      +'<div class="meta-bar"><div class="meta-fill" style="width:'+Math.min(pctComp,100)+'%;background:'+colComp+'"></div></div>'
-      +'<div style="font-size:10px;color:var(--muted);margin-top:3px">'+pctComp+'% de cumplimiento · Meta: 80%</div>'
-      +'</div>';
-    // Solo agregar si no existe ya
-    if(!dashMetasEl.querySelector('.comp-kpi')){
-      const div=document.createElement('div');div.className='comp-kpi';div.innerHTML=compCard;
-      dashMetasEl.appendChild(div);
-    } else {
-      dashMetasEl.querySelector('.comp-kpi').innerHTML=compCard;
+  if(dashMetasEl) {
+    let compCard = dashMetasEl.querySelector('.comp-kpi');
+    if(!compCard) {
+      compCard = document.createElement('div');
+      compCard.className = 'comp-kpi';
+      dashMetasEl.appendChild(compCard);
     }
+    compCard.innerHTML = '<div style="margin-top:10px;padding:9px 12px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">'
+      +'<span style="font-size:11px;font-weight:700;color:#1d4ed8">📌 Compromisos del mes</span>'
+      +'<span style="font-size:14px;font-weight:800;color:'+colComp+'">'+cumplidos+' / '+total+'</span>'
+      +'</div>'
+      +'<div class="meta-bar"><div class="meta-fill" style="width:'+Math.min(pct,100)+'%;background:'+colComp+'"></div></div>'
+      +'<div style="font-size:10px;color:var(--muted);margin-top:3px">'+pct+'% cumplimiento · Meta: 80%</div>'
+      +'</div>';
   }
 
   // Al cambiar de persona → siempre regresar al Dashboard
@@ -1709,9 +1725,13 @@ function marcarDone(id){
       .catch(e => console.warn('⚠️ Error:', e));
   } else {
     c.done = true; c.completado = true; c.estatus = 'Completado';
-    const data = encodeURIComponent(JSON.stringify({ id, completado:true, estatus:'Completado' }));
+    const data = encodeURIComponent(JSON.stringify({
+      id, completado:true, estatus:'Cumplido',
+      palomeado_por: rolActual.nombre,
+      fecha_cumplido: new Date().toISOString().slice(0,10)
+    }));
     jsonpFetch(API_S2 + '?action=updateCompromiso&data=' + data)
-      .then(r => { if(r&&r.ok) console.log('✅ Compromiso completado en Sheet'); })
+      .then(r => { if(r&&r.ok) console.log('✅ Compromiso cumplido en Sheet:', r.id); })
       .catch(e => console.warn('⚠️ Error:', e));
   }
   toast('✅ Compromiso completado');
@@ -2448,6 +2468,9 @@ function initGrow(){
       if(s) s.innerHTML = window._industriasOpts;
     });
   }
+  // Renderizar histórico de compromisos
+  const histDiv = document.getElementById('historicoCompromisos');
+  if(histDiv) histDiv.innerHTML = renderHistoricoCompromisos();
   growModoEdicion = false;
   renderGrowPage();
 }
@@ -2766,6 +2789,12 @@ function abrirNuevoCompromiso(vendedor){
       +'<div class="form-group"><label>Industria</label>'
       +'<select id="compIndustria">'+indOpts+'</select></div>'
       +'</div>'
+      +'<div class="g2">'
+      +'<div class="form-group"><label>Tipo</label>'
+      +'<select id="compTipo"><option value="General">General</option><option value="BCG">BCG</option><option value="Recuperación">Recuperación</option><option value="Prospección">Prospección</option></select></div>'
+      +'<div class="form-group"><label>Mes</label>'
+      +'<input type="month" id="compMes" value="'+new Date().toISOString().slice(0,7)+'"></div>'
+      +'</div>'
       +'<div class="form-group"><label>Descripción del compromiso</label>'
       +'<textarea id="compDesc" rows="3" placeholder="¿Qué se comprometió a hacer?"></textarea></div>'
       +'<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">'
@@ -2817,13 +2846,21 @@ function guardarCompromiso(){
     }
     toast('✅ Compromiso actualizado');
   } else {
-    // Nuevo — crear en local y en Sheet
+    // Nuevo — generar ID único local y sincronizar
     const _nc = {
-      id:'C'+Date.now(), vendedor:vend, descripcion:desc,
-      mes, industria:ind,
-      fecha:mes+'-30',
-      estatus: esCoord ? 'Validado' : 'Borrador',
-      completado:false, nota_cierre:''
+      id: 'C' + Date.now(),
+      vendedor:     vend,
+      mes,
+      descripcion:  desc,
+      industria:    ind,
+      tipo:         document.getElementById('compTipo')?.value || 'General',
+      fecha:        mes + '-28',
+      estatus:      esCoord ? 'Validado' : 'Borrador',
+      completado:   false,
+      nota_cierre:  '',
+      creado_por:   rolActual.nombre,
+      palomeado_por: '',
+      fecha_cumplido: '',
     };
     COMPROMISOS.push(_nc);
     syncCompromisoSheet(_nc);
@@ -2841,9 +2878,11 @@ function aprobarCompromiso(id){
   if(!c) return;
   c.estatus = 'Validado';
   // Sync al Sheet
-  const data = encodeURIComponent(JSON.stringify({ id, estatus:'Validado' }));
+  const data = encodeURIComponent(JSON.stringify({
+    id, estatus:'Validado', palomeado_por: rolActual.nombre
+  }));
   jsonpFetch(API_S2 + '?action=updateCompromiso&data=' + data)
-    .then(r => { if(r&&r.ok) console.log('✅ Compromiso validado en Sheet'); })
+    .then(r => { if(r&&r.ok) console.log('✅ Compromiso validado en Sheet:', r.id); })
     .catch(e => console.warn('⚠️ Error validando:', e));
   toast('✅ Compromiso validado');
   renderAprobaciones();
@@ -3491,6 +3530,119 @@ function guardarPlanGrow(vendParam, esAprobacion) {
     .catch(e => console.warn('⚠️ Error guardando plan:', e));
 
   if (!esAprobacion) { toast('✅ Plan guardado como borrador'); initGrow(); }
+}
+
+// ══════════════════════════════════════════
+//  HISTÓRICO DE COMPROMISOS — acordeón por mes
+// ══════════════════════════════════════════
+
+function renderHistoricoCompromisos() {
+  const esVendH = rolActual.tipo==='vendedor' || rolActual.tipo==='gerencia';
+  const misComps = esVendH
+    ? COMPROMISOS.filter(c => c.vendedor === rolActual.nombre && c.estatus !== 'Cancelado')
+    : COMPROMISOS.filter(c => c.estatus !== 'Cancelado');
+
+  if(!misComps.length) return '<div style="text-align:center;padding:30px;color:var(--muted);font-size:13px">Sin compromisos registrados aún</div>';
+
+  // Agrupar por mes
+  const porMes = {};
+  misComps.forEach(c => {
+    const m = c.mes || 'Sin mes';
+    if(!porMes[m]) porMes[m] = [];
+    porMes[m].push(c);
+  });
+
+  // Ordenar meses descendente
+  const meses = Object.keys(porMes).sort().reverse();
+
+  return meses.map((mes, idx) => {
+    const items = porMes[mes];
+    const cumplidos = items.filter(c => c.completado || c.estatus==='Cumplido').length;
+    const pct = items.length > 0 ? Math.round(cumplidos/items.length*100) : 0;
+    const colM = pct>=80?'var(--green)':pct>=50?'var(--yellow)':'var(--red)';
+    const isOpen = idx === 0; // Mes más reciente abierto por defecto
+
+    // Agrupar por vendedor dentro del mes (solo para coordinador)
+    const porVend = {};
+    items.forEach(c => {
+      if(!porVend[c.vendedor]) porVend[c.vendedor] = [];
+      porVend[c.vendedor].push(c);
+    });
+
+    const vendedores = Object.keys(porVend).sort();
+
+    const renderItemComp = (c) => {
+      const done = c.completado || c.estatus==='Cumplido';
+      const tipoBadge = '<span style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;background:'
+        +(c.tipo==='BCG'?'rgba(14,122,92,.1);color:#065f46'
+          :c.tipo==='Recuperación'?'rgba(192,57,43,.1);color:#c0392b'
+          :c.tipo==='Prospección'?'rgba(37,99,235,.1);color:#1d4ed8'
+          :'rgba(108,117,125,.1);color:#6c757d')
+        +'">'+(c.tipo||'General')+'</span>';
+      const estatusBadge = '<span style="font-size:10px;font-weight:600;padding:2px 6px;border-radius:4px;background:'
+        +(done?'#d1fae5;color:#065f46':c.estatus==='Validado'?'rgba(37,99,235,.1);color:#1d4ed8':'rgba(245,166,35,.15);color:#92400e')
+        +'">'+(done?'✓ Cumplido':c.estatus||'Borrador')+'</span>';
+      return '<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);'+(done?'opacity:.7':'')+'last:border-none">'
+        +'<div style="width:18px;height:18px;border-radius:50%;background:'+(done?'var(--green)':c.estatus==='Validado'?'var(--blue)':'var(--gold)')+';flex-shrink:0;margin-top:2px"></div>'
+        +'<div style="flex:1">'
+        +'<div style="font-size:12px;font-weight:500;color:var(--text)">'+(c.descripcion||'')+'</div>'
+        +'<div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap">'+tipoBadge+estatusBadge+'</div>'
+        +(c.nota_cierre?'<div style="font-size:11px;color:var(--muted);margin-top:3px;font-style:italic">"'+c.nota_cierre+'"</div>':'')
+        +'</div>'
+        +'<div style="font-size:11px;color:var(--muted);white-space:nowrap">'+(c.fecha_cumplido||c.fecha||'')+'</div>'
+        +'</div>';
+    };
+
+    let bodyHtml = '';
+    if(!esVendH) {
+      // Coordinador: acordeón por vendedor dentro del mes
+      bodyHtml = vendedores.map(vend => {
+        const vItems = porVend[vend];
+        const vCump = vItems.filter(c=>c.completado||c.estatus==='Cumplido').length;
+        return '<div style="margin-bottom:8px">'
+          +'<div style="font-size:11px;font-weight:700;color:var(--navy);padding:6px 8px;background:var(--surface2);border-radius:6px;display:flex;justify-content:space-between">'
+          +'<span>'+vend+'</span>'
+          +'<span style="color:var(--muted)">'+vCump+'/'+vItems.length+'</span>'
+          +'</div>'
+          +'<div style="padding:0 8px">'
+          +vItems.map(renderItemComp).join('')
+          +'</div>'
+          +'</div>';
+      }).join('');
+    } else {
+      bodyHtml = items.map(renderItemComp).join('');
+    }
+
+    return '<div style="border:1px solid var(--border);border-radius:10px;margin-bottom:10px;overflow:hidden">'
+      // Header del mes — clickeable
+      +'<div onclick="toggleMesComp(this)" style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;cursor:pointer;background:var(--surface2)">'
+      +'<div style="display:flex;align-items:center;gap:12px">'
+      +'<span style="font-family:Syne,sans-serif;font-size:14px;font-weight:700;color:var(--navy)">'+mes+'</span>'
+      +'<span style="font-size:11px;color:var(--muted)">'+items.length+' compromisos</span>'
+      +'</div>'
+      +'<div style="display:flex;align-items:center;gap:10px">'
+      +'<span style="font-size:13px;font-weight:800;color:'+colM+'">'+cumplidos+'/'+items.length+'</span>'
+      +'<div style="width:80px;height:6px;background:var(--border);border-radius:3px;overflow:hidden">'
+      +'<div style="width:'+pct+'%;height:100%;background:'+colM+'"></div>'
+      +'</div>'
+      +'<span style="font-size:11px;color:var(--toggle);transition:.2s">'+(isOpen?'▲':'▼')+'</span>'
+      +'</div>'
+      +'</div>'
+      // Cuerpo — abierto/cerrado
+      +'<div class="mes-comp-body" style="padding:'+(isOpen?'12px 16px':'0 16px')+';display:'+(isOpen?'block':'none')+';">'
+      +bodyHtml
+      +'</div>'
+      +'</div>';
+  }).join('');
+}
+
+function toggleMesComp(header) {
+  const body = header.nextElementSibling;
+  const arrow = header.querySelector('span:last-child');
+  const isOpen = body.style.display !== 'none';
+  body.style.display = isOpen ? 'none' : 'block';
+  body.style.padding = isOpen ? '0 16px' : '12px 16px';
+  if(arrow) arrow.textContent = isOpen ? '▼' : '▲';
 }
 
 // ══════════════════════════════════════════
